@@ -3,8 +3,9 @@ import { defineConfig } from 'vite';
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Overridable for PR preview deployments (e.g. /BaseModel/pr-preview/pr-12/)
-  base: process.env.BASE_URL || '/BaseModel/',
+  // Deployed to a custom domain (basemodel.fun) at root. Overridable for PR
+  // preview deployments (e.g. /basemodel-view/pr-preview/pr-12/).
+  base: process.env.BASE_URL || '/',
   plugins: [react()],
   server: {
     fs: {

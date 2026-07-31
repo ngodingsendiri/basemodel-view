@@ -23,7 +23,7 @@ npm install
 npm run dev
 ```
 
-Opens at `http://localhost:5173/BaseModel/`.
+Opens at `http://localhost:5173/`.
 
 ### Build
 
@@ -195,7 +195,7 @@ src/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BASE_URL` | `/BaseModel/` | Base path for deployment (overridden per PR preview) |
+| `BASE_URL` | `/` | Base path for deployment (overridden per PR preview) |
 | `VITE_DATA_MIRRORS` | _(empty)_ | Comma-separated list of additional CDN mirror base URLs |
 
 ### TypeScript
