@@ -1,0 +1,6 @@
+{
+  "ignore": [
+    "ES2022-ES2023"
+  ],
+  "allowlist": []
+}
