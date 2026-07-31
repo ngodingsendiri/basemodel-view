@@ -58,6 +58,60 @@ describe('GitHubModelRepository', () => {
     await expect(repo.fetchModels()).rejects.toThrow('Invalid models');
   });
 
+  it('accepts real pipeline data with date-only release dates and extra fields', async () => {
+    const realModels = {
+      schema_version: '0.1.0',
+      source_revision: '225089a',
+      count: 2,
+      models: [
+        {
+          model_id: 'anthropic/claude-3-5-haiku',
+          provider_id: 'anthropic',
+          name: 'Claude 3.5 Haiku',
+          family: 'Claude 3.5',
+          version: '20241022',
+          release_date: '2024-11-05',
+          description: 'Anthropic fast compact model.',
+          architecture: 'transformer',
+          context_window: 200000,
+          modality: ['text', 'image'],
+          open_weight: false,
+          reasoning_support: false,
+          function_calling: true,
+          structured_output: true,
+          vision_support: true,
+          audio_support: false,
+          image_generation: false,
+          embedding_support: false,
+          capability_ids: ['text-generation', 'code-generation', 'vision', 'tool-calling'],
+          license_id: 'proprietary',
+          status: 'active',
+        },
+        {
+          model_id: 'openai/gpt-4o',
+          provider_id: 'openai',
+          name: 'GPT-4o',
+          family: 'GPT-4',
+          version: '2024-08-06',
+          release_date: '2024-05-13',
+          description: 'OpenAI flagship multimodal model.',
+          context_window: 128000,
+          modality: ['text', 'image', 'audio'],
+          open_weight: false,
+          status: 'active',
+        },
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse(realModels)));
+
+    const repo = createRepository();
+    const result = await repo.fetchModels();
+    expect(result).toHaveLength(2);
+    expect(result[0].model_id).toBe('anthropic/claude-3-5-haiku');
+    expect(result[0].release_date).toBe('2024-11-05');
+    expect(result[1].model_id).toBe('openai/gpt-4o');
+  });
+
   it('opens the circuit breaker after repeated failures and reports it', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
 

@@ -10,7 +10,7 @@ export const ModelSchema = z.object({
   provider_id: ProviderIdSchema,
   context_window: z.number().int().positive().optional(),
   max_output_tokens: z.number().int().positive().optional(),
-  release_date: z.string().datetime().optional(),
+  release_date: z.union([z.iso.date(), z.iso.datetime()]).optional(),
   modality: z.array(z.string()).default([]),
   description: z.string().optional(),
 });
@@ -77,4 +77,6 @@ export const PROVIDER_LINKS: ReadonlyMap<ProviderId, string> = new Map([
   [providerId('datalab'), 'https://datalab.to/'],
   [providerId('bifrost'), 'https://getbifrost.com/'],
   [providerId('vercel'), 'https://sdk.vercel.ai/'],
+  [providerId('meta'), 'https://llama.meta.com/'],
+  [providerId('mistral-ai'), 'https://console.mistral.ai/'],
 ]);
