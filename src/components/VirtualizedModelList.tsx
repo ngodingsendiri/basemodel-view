@@ -26,21 +26,20 @@ export function VirtualizedModelList({
     if (element) {
       return element.getBoundingClientRect().height;
     }
-    // Fallback estimate based on content
+    // Fallback estimate based on content (compact card)
     const model = models[index];
-    if (!model) return 180;
+    if (!model) return 96;
     const modalityCount = model.modality?.length ?? 0;
-    const hasOutputTokens = !!model.max_output_tokens;
-    const hasReleaseDate = !!model.release_date;
-    // Base height + modalities + stats
-    return 160 + modalityCount * 24 + (hasOutputTokens ? 24 : 0) + (hasReleaseDate ? 24 : 0);
+    const metaLines = Math.ceil((1 + modalityCount) / 4);
+    // Base height + wrapping meta line when many modality pills exist
+    return 84 + Math.max(0, metaLines - 1) * 18;
   }, [models]);
 
   const virtualizer = useVirtualizer({
     count: loading ? 12 : models.length,
     getScrollElement: () => parentRef.current,
     estimateSize: measureElement,
-    gap: 10,
+    gap: 8,
     overscan: 5,
   });
 
