@@ -1,11 +1,11 @@
 import type { ProviderId } from '../domain/branded';
 
-export type SortKey = 'name' | 'context' | 'date';
+export type SortKey = 'name' | 'context' | 'date' | 'price';
 
 export type ProviderFilter = ProviderId | 'all';
 
 export function parseSortKey(value: string | null): SortKey {
-  if (value === 'context' || value === 'date') return value;
+  if (value === 'context' || value === 'date' || value === 'price') return value;
   return 'name';
 }
 

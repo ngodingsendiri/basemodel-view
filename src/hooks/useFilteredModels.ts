@@ -33,6 +33,19 @@ export function useFilteredModels({
     [tierMap]
   );
 
+  const priceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [modelId, record] of intelligenceByModel) {
+      map.set(modelId, record.blended_cost_per_1m);
+    }
+    return map;
+  }, [intelligenceByModel]);
+
+  const getPriceForModel = useCallback(
+    (modelId: string) => priceMap.get(modelId),
+    [priceMap]
+  );
+
   const filtered = useMemo(() => {
     let result = models;
 
@@ -52,9 +65,14 @@ export function useFilteredModels({
     return [...result].sort((a, b) => {
       if (sortKey === 'context') return (b.context_window ?? 0) - (a.context_window ?? 0);
       if (sortKey === 'date') return (b.release_date ?? '').localeCompare(a.release_date ?? '');
+      if (sortKey === 'price') {
+        const pa = priceMap.get(a.model_id) ?? Number.POSITIVE_INFINITY;
+        const pb = priceMap.get(b.model_id) ?? Number.POSITIVE_INFINITY;
+        return pa - pb;
+      }
       return a.name.localeCompare(b.name);
     });
-  }, [models, selectedProviderId, searchQuery, freeOnly, sortKey, getTierForModel]);
+  }, [models, selectedProviderId, searchQuery, freeOnly, sortKey, getTierForModel, priceMap]);
 
-  return { filtered, getTierForModel };
+  return { filtered, getTierForModel, getPriceForModel };
 }

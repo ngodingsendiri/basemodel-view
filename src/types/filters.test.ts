@@ -5,6 +5,7 @@ describe('filter parsers', () => {
   it('parseSortKey validates allowed keys and defaults to name', () => {
     expect(parseSortKey('context')).toBe('context');
     expect(parseSortKey('date')).toBe('date');
+    expect(parseSortKey('price')).toBe('price');
     expect(parseSortKey('name')).toBe('name');
     expect(parseSortKey('bogus')).toBe('name');
     expect(parseSortKey(null)).toBe('name');

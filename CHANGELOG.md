@@ -2,6 +2,42 @@
 
 All notable changes to BaseModel Explorer are documented here.
 
+## [1.1.0] — 2026-08-01
+
+### Features
+
+- **Pricing display**: blended cost per 1M tokens now shown on model cards, in the alternatives modal, and in the compare table (`formatCost`); unknown costs render as an em dash
+- **Price sort**: new "Sort: Price ↑" option — ascending by cost, models without pricing sorted last; URL-synced via `sort=price`
+- **Clickable alternatives**: each suggested alternative in the modal is now a button that opens that model's own details; the `?alt=` deep link stays in sync
+- **Compare side-by-side**: per-card compare toggle (`aria-pressed`), floating compare bar with live count, and a compare modal with an attribute table (provider, tier, price, context, max output, modalities, release, description)
+- **`useCompare` hook**: selection survives filtering/search; stale selections pruned against the current dataset
+
+### Polish
+
+- **Chip hierarchy**: stat chips (context/output/date/price) visually distinguished from modality chips
+- **Search input**: no longer expands on focus, removing the header layout shift
+- **Responsive stack layout**: on ≤768px the sidebar becomes a horizontal tab strip above the content
+- **Type scale**: base tokens raised (`--fs-xs` 0.72rem, `--fs-sm` 0.8rem, `--fs-base` 0.875rem); hardcoded tiny font sizes bumped to ≥0.68rem
+- **Header controls**: consistent wrapping and row gaps
+
+### Fixes & Cleanup
+
+- **Valid HTML in alternatives**: the "copy model ID" control is no longer nested inside the navigation button; copy and navigate are sibling controls with distinct hit areas
+- **CSS deduplication**: removed duplicated modal, skeleton, copy-button, and error-state rules plus dead selectors (~170 lines)
+- **CSP cleanup**: dropped `frame-ancestors` from the `<meta>` policy — it is ignored when delivered via `<meta>` and only produced console noise; frame protection belongs in HTTP headers
+- **Browser Back closes the modal**: opening an alternative now pushes history, so Back dismisses it and the URL stays clean; deep links are applied without extra history
+- **Expandable alternatives**: the list shows up to 3 by default with a "Show N more" toggle (inline, no page nav) and resets when switching models
+- **Compare persisted to the URL**: the compare selection is mirrored in the `?compare=` parameter (comma-separated, validated against the dataset) and survives reloads
+- **Compare table polish**: first column is sticky while scrolling and the best value per row is highlighted (green, bold)
+- **Free pricing in compare**: a $0 blended cost renders as "Free" (not an em dash), matching the cards
+- **Accessible tab headings**: section titles inside the tab list are marked `role="presentation"` so only the tab buttons remain in the tab order
+- **Empty-state icon**: the compare and alternatives empty states get a proper inline SVG icon instead of a bare glyph
+
+### Testing
+
+- **38 unit tests** (+9: `formatCost`, price sort, `getPriceForModel`, `useCompare`)
+- **15 E2E tests** (+7: price display, alternative navigation, compare flow, Back-to-close, "Show N more", compare URL persistence, best-value highlight)
+
 ## [1.0.0] — 2026-07-31
 
 ### Architecture
@@ -46,7 +82,7 @@ All notable changes to BaseModel Explorer are documented here.
 
 ### Security
 
-- **Content Security Policy**: `script-src 'self'`, `style-src 'self' 'unsafe-inline'`, `frame-ancestors 'none'`, `object-src 'none'`, `form-action 'none'`
+- **Content Security Policy**: `script-src 'self'`, `style-src 'self' 'unsafe-inline'`, `object-src 'none'`, `form-action 'none'`
 - **Input sanitization**: all dynamic text escaped via `src/utils/sanitize.ts` (HTML entity encoding for `&`, `<`, `>`, `"`, `'`)
 - **Dev server filesystem**: restricted to `.` only (removed `fs.allow: ['../../..']`)
 - **No `wasm-unsafe-eval`** in CSP

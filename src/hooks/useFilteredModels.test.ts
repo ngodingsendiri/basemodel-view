@@ -118,4 +118,39 @@ describe('useFilteredModels', () => {
     expect(result.current.getTierForModel('a/model3')).toBe('Budget-Friendly');
     expect(result.current.getTierForModel('unknown')).toBe('Unknown');
   });
+
+  it('getPriceForModel returns blended cost', () => {
+    const { result } = renderHook(() =>
+      useFilteredModels({
+        models: mockModels,
+        intelligenceByModel: mockIntelligenceByModel,
+        selectedProviderId: 'all',
+        searchQuery: '',
+        freeOnly: false,
+        sortKey: 'name',
+      })
+    );
+
+    expect(result.current.getPriceForModel('a/model1')).toBe(0);
+    expect(result.current.getPriceForModel('b/model2')).toBe(10);
+    expect(result.current.getPriceForModel('a/model3')).toBe(1);
+    expect(result.current.getPriceForModel('unknown')).toBeUndefined();
+  });
+
+  it('sorts by price ascending, unknown last', () => {
+    const { result } = renderHook(() =>
+      useFilteredModels({
+        models: mockModels,
+        intelligenceByModel: mockIntelligenceByModel,
+        selectedProviderId: 'all',
+        searchQuery: '',
+        freeOnly: false,
+        sortKey: 'price',
+      })
+    );
+
+    expect(result.current.filtered[0].model_id).toBe('a/model1');
+    expect(result.current.filtered[1].model_id).toBe('a/model3');
+    expect(result.current.filtered[2].model_id).toBe('b/model2');
+  });
 });

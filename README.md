@@ -99,6 +99,8 @@ src/
 │
 ├── components/
 │   ├── AlternativesModal.tsx        # Deep-linkable modal with focus trap + copy
+│   ├── CompareBar.tsx               # Floating selection bar for the compare flow
+│   ├── CompareModal.tsx             # Side-by-side attribute table for selected models
 │   ├── ErrorBoundary.tsx            # Class component with resetKey, onRetry, per-region fallbacks
 │   ├── icons.tsx                    # Inline SVG icon components (no emojis)
 │   ├── ModelCard.tsx                # Card with copy buttons, tier badge, modality chips
@@ -109,8 +111,9 @@ src/
 │
 ├── hooks/
 │   ├── useAlternativesModal.ts      # Modal state: open/close, originalModel, selectedAlternatives
+│   ├── useCompare.ts                # Compare selection state (Set of model IDs)
 │   ├── useDebouncedValue.ts         # Generic debounce hook (150ms default)
-│   ├── useFilteredModels.ts         # Filtering + sorting via memoized tier map
+│   ├── useFilteredModels.ts         # Filtering + sorting via memoized tier/price maps
 │   └── useFocusTrap.ts             # Keyboard focus trap for modals
 │
 ├── types/
@@ -137,19 +140,31 @@ src/
 ### Filtering & Search
 
 - **Provider sidebar** with model counts per provider (sorted by count descending)
-- **Search input** with 150ms debounce (avoids recomputing filters on every keystroke)
+- **Search input** with 150ms debounce (avoids recomputing filters on every keystroke); `Escape` clears the query
 - **Free-only toggle** to show only zero-cost models
-- **Sort dropdown**: Name (A-Z), Context (descending), Newest first
+- **Sort dropdown**: Name (A-Z), Context (descending), Newest first, Price (ascending)
 - **Clear filters** button visible when any filter is active
 - **URL sync**: all filters are reflected in URL search params (`?provider=openai&free=true&sort=context&q=gpt`)
+
+### Pricing
+
+- **Cost per 1M tokens** rendered on model cards (`$0.15 /1M`), in the alternatives modal, and in the compare table
+- **Price sort** ranks models cheapest-first; models without pricing data sort last
 
 ### Alternatives Modal
 
 - **Click any model card** to open a detailed modal with up to 3 suggested alternatives
+- **Click an alternative** to jump to that model's own details (deep-linkable via `?alt=<model_id>`)
 - **Deep-linkable**: navigate directly via `?alt=<model_id>` URL parameter
 - **Focus trap** with Tab/Shift+Tab cycling and Escape to close
 - **Copy buttons** with clipboard API + fallback (`document.execCommand`), tooltip, and visual feedback
 - **Close-race protection**: closing the modal never causes a stale re-open
+
+### Compare
+
+- **Per-card compare toggle** adds models to a selection
+- **Floating compare bar** shows the live count and opens the comparison once ≥2 models are selected
+- **Compare modal** displays a side-by-side attribute table (provider, tier, price, context, output tokens, modalities, release date, description)
 
 ### Accessibility
 
@@ -160,7 +175,7 @@ src/
 
 ### Security
 
-- **Content Security Policy** in `index.html`: `script-src 'self'`, `style-src 'self' 'unsafe-inline'`, `frame-ancestors 'none'`, `object-src 'none'`
+- **Content Security Policy** in `index.html`: `script-src 'self'`, `style-src 'self' 'unsafe-inline'`, `object-src 'none'`
 - **Input sanitization**: all dynamic text (model names, IDs, provider names, error messages, reasons) escaped via `src/utils/sanitize.ts`
 - **Dev server filesystem**: restricted to `.` only (no parent directory traversal)
 - **No `wasm-unsafe-eval`** in CSP

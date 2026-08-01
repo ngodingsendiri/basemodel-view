@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatCtx, formatReleaseDate } from './format';
+import { formatCtx, formatReleaseDate, formatCost } from './format';
 
 describe('formatCtx', () => {
   it('formats millions', () => {
@@ -33,5 +33,25 @@ describe('formatReleaseDate', () => {
 
   it('returns null for empty string', () => {
     expect(formatReleaseDate('')).toBeNull();
+  });
+});
+
+describe('formatCost', () => {
+  it('returns Free for zero cost', () => {
+    expect(formatCost(0)).toBe('Free');
+  });
+
+  it('returns em dash for unknown cost', () => {
+    expect(formatCost(undefined)).toBe('—');
+  });
+
+  it('formats whole-dollar costs', () => {
+    expect(formatCost(10)).toBe('$10.00');
+    expect(formatCost(1.25)).toBe('$1.25');
+  });
+
+  it('formats sub-dollar costs with extra precision', () => {
+    expect(formatCost(0.5)).toBe('$0.50');
+    expect(formatCost(0.0015)).toBe('$0.0015');
   });
 });

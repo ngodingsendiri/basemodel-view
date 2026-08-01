@@ -42,6 +42,10 @@ const mockIntelligence = {
       blended_cost_per_1m: 0,
       alternatives: [
         { model_id: 'otherco/model-2', name: 'Beta Model Two', reason: 'Cheaper per token' },
+        { model_id: 'testco/model-3', name: 'Gamma Model Three', reason: 'Similar capability' },
+        { model_id: 'testco/model-4', name: 'Delta Model Four', reason: 'Good balance' },
+        { model_id: 'testco/model-5', name: 'Epsilon Model Five', reason: 'Higher throughput' },
+        { model_id: 'testco/model-6', name: 'Zeta Model Six', reason: 'Lower latency' },
       ],
     },
     {
@@ -139,4 +143,86 @@ test('navigates provider tabs with arrow keys', async ({ page }) => {
 
   await page.keyboard.press('Home');
   await expect(allTab).toBeFocused();
+});
+
+test('displays price per 1M tokens on paid models', async ({ page }) => {
+  await expect(page.getByText('$10.00 /1M')).toBeVisible();
+});
+
+test('navigates to an alternative model from the modal', async ({ page }) => {
+  await page.getByText('Test Alpha Model').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole('button', { name: /View details for Beta Model Two/ }).click({ position: { x: 60, y: 20 } });
+  await expect(page.locator('.modal-title')).toHaveText('Beta Model Two');
+  await expect(dialog.getByText('$10.00 /1M')).toBeVisible();
+});
+
+test('compares two models side by side', async ({ page }) => {
+  await page.getByRole('button', { name: 'Add Test Alpha Model to comparison' }).click();
+  await page.getByRole('button', { name: 'Add Beta Model Two to comparison' }).click();
+
+  await expect(page.getByText('2 selected')).toBeVisible();
+  await page.getByRole('button', { name: /Compare \(2\)/ }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Compare models')).toBeVisible();
+  await expect(dialog.getByText('$10.00 /1M')).toBeVisible();
+  await expect(dialog.getByRole('cell', { name: 'Premium' })).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Remove Test Alpha Model from comparison' }).click();
+  await expect(dialog.getByRole('cell', { name: 'Test Alpha Model' })).toHaveCount(0);
+  await expect(dialog.getByText('Beta Model Two')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+});
+
+test('expands alternative suggestions beyond the first three', async ({ page }) => {
+  await page.getByText('Test Alpha Model').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+
+  await expect(dialog.getByRole('button', { name: /View details for Zeta Model Six/ })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Show 2 more' })).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Show 2 more' }).click();
+  await expect(dialog.getByRole('button', { name: /View details for Zeta Model Six/ })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Show 2 more' })).toHaveCount(0);
+});
+
+test('closes the modal when the browser Back button is pressed', async ({ page }) => {
+  await page.getByText('Test Alpha Model').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/alt=testco%2Fmodel-1/);
+
+  await page.goBack();
+  await expect(dialog).toBeHidden();
+});
+
+test('persists compare selection across reloads via the URL', async ({ page }) => {
+  await page.getByRole('button', { name: 'Add Test Alpha Model to comparison' }).click();
+  await page.getByRole('button', { name: 'Add Beta Model Two to comparison' }).click();
+  await expect(page.getByText('2 selected')).toBeVisible();
+  await expect(page).toHaveURL(/compare=/);
+
+  await page.reload();
+  await expect(page.getByText('2 selected')).toBeVisible();
+  await expect(page).toHaveURL(/compare=/);
+
+  await page.getByRole('button', { name: /Compare \(2\)/ }).click();
+  await expect(page.getByRole('dialog').getByText('Compare models')).toBeVisible();
+});
+
+test('shows Free pricing and highlights the best value in the compare table', async ({ page }) => {
+  await page.getByRole('button', { name: 'Add Test Alpha Model to comparison' }).click();
+  await page.getByRole('button', { name: 'Add Beta Model Two to comparison' }).click();
+  await page.getByRole('button', { name: /Compare \(2\)/ }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('td.compare-best', { hasText: 'Free' })).toBeVisible();
+  await expect(dialog.getByRole('cell', { name: '128k tokens' })).toHaveClass(/compare-best/);
 });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Model, Alternative } from '../schemas/api';
 import { sanitizeModelName, sanitizeModelId, sanitizeReason } from '../utils/sanitize';
+import { formatCost } from '../utils/format';
 import { IconClose } from './icons';
 
 interface AlternativesModalProps {
@@ -8,14 +9,16 @@ interface AlternativesModalProps {
   onClose: () => void;
   originalModel: Model | null;
   alternatives: Alternative[];
+  onSelectAlternative?: (modelId: string) => void;
+  getPrice?: (modelId: string) => number | undefined;
 }
 
 const modalTitleId = 'alternatives-modal-title';
+const INITIAL_VISIBLE = 3;
 
 function CopyIDBtn({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const copy = () => {
     const announce = (ok: boolean) => {
       setCopied(ok);
       if (ok) setTimeout(() => setCopied(false), 1500);
@@ -54,9 +57,16 @@ function fallbackCopy(text: string): boolean {
   }
 }
 
-export function AlternativesModal({ isOpen, onClose, originalModel, alternatives }: AlternativesModalProps) {
+export function AlternativesModal({ isOpen, onClose, originalModel, alternatives, onSelectAlternative, getPrice }: AlternativesModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const visibleAlternatives = showAll ? alternatives : alternatives.slice(0, INITIAL_VISIBLE);
+  const hiddenCount = alternatives.length - visibleAlternatives.length;
+
+  useEffect(() => {
+    setShowAll(false);
+  }, [originalModel?.model_id]);
 
   useEffect(() => {
     if (isOpen) {
@@ -141,6 +151,14 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
           {(originalModel.modality ?? []).map((m) => (
             <span key={m} className="badge-modality">{m.toUpperCase()}</span>
           ))}
+          {(() => {
+            const price = getPrice?.(originalModel.model_id);
+            return price !== undefined && price > 0 ? (
+              <span className="badge-modality badge-modality--price" title="Cost per 1M tokens">
+                {formatCost(price)} /1M
+              </span>
+            ) : null;
+          })()}
         </div>
 
         <div className="alt-list">
@@ -153,18 +171,49 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
               No alternatives found in the current dataset.
             </p>
           ) : (
-            alternatives.map((alt) => (
-              <div key={alt.model_id} className="alt-item">
-                <div className="alt-item-info">
-                  <div className="alt-item-name">{sanitizeModelName(alt.name)}</div>
-                  <div className="alt-item-meta">
-                    <span className="alt-item-id">{sanitizeModelId(alt.model_id)}</span>
+            <>
+              {visibleAlternatives.map((alt) => {
+                const altPrice = getPrice?.(alt.model_id);
+                const info = (
+                  <div className="alt-item-info">
+                    <div className="alt-item-name">{sanitizeModelName(alt.name)}</div>
+                    <div className="alt-item-meta">
+                      <span className="alt-item-id">{sanitizeModelId(alt.model_id)}</span>
+                      {altPrice !== undefined && altPrice > 0 && (
+                        <span className="alt-item-price">{formatCost(altPrice)} /1M</span>
+                      )}
+                    </div>
+                    <div className="alt-item-reason">{sanitizeReason(alt.reason)}</div>
+                  </div>
+                );
+                return (
+                  <div key={alt.model_id} className="alt-item">
+                    {onSelectAlternative ? (
+                      <button
+                        type="button"
+                        className="alt-item-nav"
+                        onClick={() => onSelectAlternative(alt.model_id)}
+                        aria-label={`View details for ${sanitizeModelName(alt.name)}`}
+                      >
+                        {info}
+                      </button>
+                    ) : (
+                      info
+                    )}
                     <CopyIDBtn id={alt.model_id} />
                   </div>
-                  <div className="alt-item-reason">{sanitizeReason(alt.reason)}</div>
-                </div>
-              </div>
-            ))
+                );
+              })}
+              {hiddenCount > 0 && (
+                <button
+                  type="button"
+                  className="alt-show-more"
+                  onClick={() => setShowAll(true)}
+                >
+                  Show {hiddenCount} more
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

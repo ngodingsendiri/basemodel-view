@@ -8,7 +8,7 @@ export function useAlternativesModal() {
 
   const open = useCallback((model: Model, alts: Alternative[]) => {
     setOriginalModel(model);
-    setSelectedAlternatives(alts.slice(0, 3));
+    setSelectedAlternatives(alts);
     setIsOpen(true);
   }, []);
 

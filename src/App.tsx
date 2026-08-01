@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { useModelRepository, useModelService } from './context/modelRegistry/useModelRegistry';
 import { AlternativesModal } from './components/AlternativesModal';
+import { CompareBar } from './components/CompareBar';
+import { CompareModal } from './components/CompareModal';
 import { VirtualizedModelList } from './components/VirtualizedModelList';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ErrorBoundary, ModelListFallback, SidebarFallback, ContentHeaderFallback, ModalFallback } from './components/ErrorBoundary';
@@ -12,6 +14,7 @@ import { providerId, type ModelId, type ProviderId } from './domain/branded';
 import { sanitizeProviderName, sanitizeError } from './utils/sanitize';
 import { reportError } from './utils/errorReporting';
 import { useAlternativesModal } from './hooks/useAlternativesModal';
+import { useCompare } from './hooks/useCompare';
 import { useFilteredModels } from './hooks/useFilteredModels';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
 import { parseBoolean, parseSortKey, type ProviderFilter, type SortKey } from './types/filters';
@@ -40,6 +43,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   // Build lookup structures once so filtering/clicks avoid O(n) scans.
   const modelsById = useMemo(() => {
@@ -87,17 +91,42 @@ export default function App() {
   }, [selectedProviderId, debouncedSearchQuery, freeOnly, sortKey, setSearchParams]);
 
   // Keep the `alt` URL param in sync with modal visibility (deep-linkable modal).
-  // A fresh deep link arrives with `originalModel === null`, so the param is
-  // preserved until the modal opens (or a close removes it) — otherwise the
-  // deep-link effect below could never observe it.
+  // Opening pushes a history entry so the Back button returns to the list and
+  // closes the modal; everything else (deep-link open, model switch, close)
+  // replaces in place so the history is not spammed.
+  const wasOpenRef = useRef(false);
+  const lastAltParamRef = useRef<string | null>(searchParams.get('alt'));
   useEffect(() => {
+    const currentAlt = searchParams.get('alt');
+    const openedNow = isOpen && !wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+
+    // The `alt` param vanished while the modal was open without an explicit
+    // close — the user pressed Back/forward. Close the modal and do NOT rewrite
+    // the param (otherwise the sync below would undo the navigation).
+    if (isOpen && !openedNow && lastAltParamRef.current != null && currentAlt == null) {
+      lastAltParamRef.current = null;
+      close();
+      return;
+    }
+
+    const targetAlt = isOpen && originalModel ? originalModel.model_id : null;
+    const shouldDelete = !isOpen && originalModel;
+    if (!shouldDelete && targetAlt === currentAlt && lastAltParamRef.current === currentAlt) {
+      lastAltParamRef.current = currentAlt;
+      return; // already in sync
+    }
+
+    const alreadyLinked = targetAlt != null && currentAlt === targetAlt;
+    const pushHistory = openedNow && !alreadyLinked;
+    lastAltParamRef.current = currentAlt;
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
       if (isOpen && originalModel) params.set('alt', originalModel.model_id);
       else if (!isOpen && originalModel) params.delete('alt');
       return params;
-    }, { replace: true });
-  }, [isOpen, originalModel, setSearchParams]);
+    }, { replace: !pushHistory });
+  }, [isOpen, originalModel, searchParams, setSearchParams, close]);
 
   // Open the modal from an `alt` deep link once the model data is available.
   // Skipped when the URL matches the already-referenced model, so an explicit
@@ -109,7 +138,7 @@ export default function App() {
     const model = modelsById.get(altId as ModelId);
     if (model) {
       const intel = intelligenceByModel.get(model.model_id);
-      open(model, intel?.alternatives?.slice(0, 3) ?? []);
+      open(model, intel?.alternatives ?? []);
     }
   }, [searchParams, modelsById, intelligenceByModel, isOpen, originalModel, open]);
 
@@ -182,8 +211,17 @@ export default function App() {
     const model = modelsById.get(id);
     if (model) {
       const intel = intelligenceByModel.get(id);
-      open(model, intel?.alternatives?.slice(0, 3) ?? []);
+      open(model, intel?.alternatives ?? []);
     }
+  }, [modelsById, intelligenceByModel, open]);
+
+  // Navigate to an alternative model's own details from inside the modal.
+  const handleSelectAlternative = useCallback((modelId: string) => {
+    const id = modelId as ModelId;
+    const model = modelsById.get(id);
+    if (!model) return;
+    const intel = intelligenceByModel.get(id);
+    open(model, intel?.alternatives ?? []);
   }, [modelsById, intelligenceByModel, open]);
 
   const clearFilters = useCallback(() => {
@@ -196,7 +234,7 @@ export default function App() {
   const hasActiveFilters =
     selectedProviderId !== 'all' || searchQuery !== '' || freeOnly || sortKey !== 'name';
 
-  const { filtered, getTierForModel } = useFilteredModels({
+  const { filtered, getTierForModel, getPriceForModel } = useFilteredModels({
     models: data?.models ?? [],
     intelligenceByModel,
     selectedProviderId,
@@ -204,6 +242,26 @@ export default function App() {
     freeOnly,
     sortKey,
   });
+
+  const compareUrlSeed = useMemo<ModelId[]>(() => {
+    const raw = searchParams.get('compare');
+    if (!raw) return [];
+    return raw.split(',').map((s) => s.trim()).filter(Boolean) as ModelId[];
+  }, [searchParams]);
+
+  const compare = useCompare(data?.models ?? [], compareUrlSeed);
+
+  // Persist the compare selection to the URL so it survives a reload, matching
+  // the other filter state. Other params are preserved via functional update.
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      const ids = Array.from(compare.selected).map(String).sort();
+      if (ids.length > 0) params.set('compare', ids.join(','));
+      else params.delete('compare');
+      return params;
+    }, { replace: true });
+  }, [compare.selected, setSearchParams]);
 
   // Arrow-key navigation between sidebar tabs (roving tabindex pattern).
   const handleTabListKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
@@ -311,7 +369,7 @@ export default function App() {
           aria-label="Model categories"
           onKeyDown={handleTabListKeyDown}
         >
-          <h2 className="menu-section-title">Overview</h2>
+          <h2 className="menu-section-title" role="presentation">Overview</h2>
           <button
             type="button"
             className={`menu-item ${selectedProviderId === 'all' ? 'active' : ''}`}
@@ -326,7 +384,7 @@ export default function App() {
             <span className="menu-badge">{data.models.length}</span>
           </button>
 
-          <h2 className="menu-section-title sidebar-section-title">Providers</h2>
+          <h2 className="menu-section-title sidebar-section-title" role="presentation">Providers</h2>
           {data.providers
             .filter((p) => (providerCounts.get(p.provider_id) ?? 0) > 0)
             .sort((a, b) => (providerCounts.get(b.provider_id) ?? 0) - (providerCounts.get(a.provider_id) ?? 0))
@@ -412,6 +470,7 @@ export default function App() {
                   <option value="name">Sort: Name</option>
                   <option value="context">Sort: Context ↓</option>
                   <option value="date">Sort: Newest</option>
+                  <option value="price">Sort: Price ↑</option>
                 </select>
                 <IconChevronDown width={12} height={12} />
               </div>
@@ -459,6 +518,9 @@ export default function App() {
             <VirtualizedModelList
               models={filtered}
               getTier={getTierForModel}
+              getPrice={getPriceForModel}
+              compareSelected={compare.selected}
+              onToggleCompare={compare.toggle}
               onClick={handleModelClick}
               onClearFilters={clearFilters}
               loading={loading}
@@ -473,8 +535,31 @@ export default function App() {
           onClose={close}
           originalModel={originalModel}
           alternatives={selectedAlternatives}
+          onSelectAlternative={handleSelectAlternative}
+          getPrice={getPriceForModel}
         />
       </ErrorBoundary>
+
+      {compare.selectedModels.length > 0 && (
+        <CompareBar
+          count={compare.selectedModels.length}
+          onCompare={() => setCompareOpen(true)}
+          onClear={compare.clear}
+        />
+      )}
+
+      {compareOpen && compare.selectedModels.length > 0 && (
+        <ErrorBoundary fallback={<ModalFallback onClose={() => setCompareOpen(false)} />}>
+          <CompareModal
+            models={compare.selectedModels}
+            providers={data.providers}
+            getTier={getTierForModel}
+            getPrice={getPriceForModel}
+            onClose={() => setCompareOpen(false)}
+            onRemove={compare.toggle}
+          />
+        </ErrorBoundary>
+      )}
     </div>
   );
 }

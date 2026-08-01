@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import type { Model } from '../types';
-import { formatCtx, formatReleaseDate } from '../utils/format';
+import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
 import { TIER_CLASS, MODALITY_LABEL } from './ui/constants';
-import { IconStar } from './icons';
-import { sanitizeModelName, sanitizeModelId, sanitizeProviderName } from '../utils/sanitize';
+import { IconStar, IconCheck } from './icons';
+import { sanitizeModelName, sanitizeModelId, sanitizeText } from '../utils/sanitize';
 
 interface ModelCardProps {
   model: Model;
   tier: string;
+  price?: number;
+  compareSelected?: boolean;
+  onToggleCompare?: (modelId: string) => void;
   onClick: (modelId: string) => void;
 }
 
@@ -62,7 +65,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 const MAX_VISIBLE_MODALITIES = 3;
 
-export function ModelCard({ model, tier, onClick }: ModelCardProps) {
+export function ModelCard({ model, tier, price, compareSelected, onToggleCompare, onClick }: ModelCardProps) {
   const isFree = tier === 'Free';
   const releaseYear = formatReleaseDate(model.release_date);
   const modalities = model.modality ?? [];
@@ -88,7 +91,7 @@ export function ModelCard({ model, tier, onClick }: ModelCardProps) {
                 <IconStar width={10} height={10} /> Free
               </>
             ) : (
-              sanitizeProviderName(tier)
+              sanitizeText(tier)
             )}
           </span>
         </span>
@@ -118,6 +121,12 @@ export function ModelCard({ model, tier, onClick }: ModelCardProps) {
               {releaseYear}
             </span>
           )}
+          {price !== undefined && price > 0 && (
+            <span className="stat-chip stat-chip--price" title="Cost per 1M tokens">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              {formatCost(price)} /1M
+            </span>
+          )}
           {visibleModalities.length > 0 && (
             <span className="modality-chips">
               {visibleModalities.map((m) => (
@@ -132,6 +141,19 @@ export function ModelCard({ model, tier, onClick }: ModelCardProps) {
       </button>
 
       <CopyButton text={model.model_id} label="model ID" />
+
+      {onToggleCompare && (
+        <button
+          type="button"
+          className="compare-toggle"
+          onClick={() => onToggleCompare(model.model_id)}
+          aria-pressed={compareSelected ?? false}
+          aria-label={compareSelected ? `Remove ${sanitizeModelName(model.name)} from comparison` : `Add ${sanitizeModelName(model.name)} to comparison`}
+          title={compareSelected ? 'Remove from comparison' : 'Add to comparison'}
+        >
+          <IconCheck width={12} height={12} />
+        </button>
+      )}
     </div>
   );
 }

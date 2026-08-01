@@ -12,6 +12,9 @@ const LOADING_CARD_COUNT = 12;
 interface VirtualizedModelListProps {
   models: Model[];
   getTier: (modelId: string) => string;
+  getPrice?: (modelId: string) => number | undefined;
+  compareSelected?: ReadonlySet<string>;
+  onToggleCompare?: (modelId: string) => void;
   onClick: (modelId: string) => void;
   onClearFilters?: () => void;
   loading?: boolean;
@@ -20,6 +23,9 @@ interface VirtualizedModelListProps {
 export function VirtualizedModelList({
   models,
   getTier,
+  getPrice,
+  compareSelected,
+  onToggleCompare,
   onClick,
   onClearFilters,
   loading = false,
@@ -122,6 +128,9 @@ export function VirtualizedModelList({
                     key={model.model_id}
                     model={model}
                     tier={getTier(model.model_id)}
+                    price={getPrice?.(model.model_id)}
+                    compareSelected={compareSelected?.has(model.model_id)}
+                    onToggleCompare={onToggleCompare}
                     onClick={onClick}
                   />
                 ))}

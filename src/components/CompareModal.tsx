@@ -1,0 +1,190 @@
+import { useEffect, useRef } from 'react';
+import type { Model, Provider } from '../schemas/api';
+import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
+import { MODALITY_LABEL } from './ui/constants';
+import { IconClose } from './icons';
+import { sanitizeModelName, sanitizeModelId } from '../utils/sanitize';
+
+const compareTitleId = 'compare-modal-title';
+
+interface CompareModalProps {
+  models: Model[];
+  providers: Provider[];
+  getTier: (modelId: string) => string;
+  getPrice?: (modelId: string) => number | undefined;
+  onClose: () => void;
+  onRemove: (modelId: string) => void;
+}
+
+export function CompareModal({ models, providers, getTier, getPrice, onClose, onRemove }: CompareModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const providerNames = new Map(providers.map((p) => [p.provider_id, p.name]));
+
+  useEffect(() => {
+    const previousActiveElement = document.activeElement as HTMLElement;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+      if (e.key === 'Tab') {
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable?.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+      previousActiveElement.focus();
+    };
+  }, [onClose]);
+
+  if (models.length === 0) return null;
+
+  type CompareRow = {
+    label: string;
+    render: (m: Model) => React.ReactNode;
+    best?: (m: Model) => number | null;
+    bestMode?: 'min' | 'max';
+  };
+
+  const rows: CompareRow[] = [
+    {
+      label: 'Provider',
+      render: (m) => providerNames.get(m.provider_id) ?? m.provider_id,
+    },
+    {
+      label: 'Tier',
+      render: (m) => getTier(m.model_id),
+    },
+    {
+      label: 'Price /1M',
+      render: (m) => {
+        const price = getPrice?.(m.model_id);
+        if (price == null) return '—';
+        return price === 0 ? 'Free' : `${formatCost(price)} /1M`;
+      },
+      best: (m) => getPrice?.(m.model_id) ?? null,
+      bestMode: 'min',
+    },
+    {
+      label: 'Context',
+      render: (m) => (m.context_window != null ? `${formatCtx(m.context_window)} tokens` : '—'),
+      best: (m) => m.context_window ?? null,
+      bestMode: 'max',
+    },
+    {
+      label: 'Max output',
+      render: (m) => (m.max_output_tokens != null ? formatCtx(m.max_output_tokens) : '—'),
+      best: (m) => m.max_output_tokens ?? null,
+      bestMode: 'max',
+    },
+    {
+      label: 'Modalities',
+      render: (m) =>
+        (m.modality ?? []).length > 0
+          ? (m.modality ?? []).map((mod) => MODALITY_LABEL[mod] ?? mod.toUpperCase()).join(', ')
+          : '—',
+    },
+    {
+      label: 'Released',
+      render: (m) => formatReleaseDate(m.release_date) ?? '—',
+    },
+    {
+      label: 'Description',
+      render: (m) => m.description ?? '—',
+    },
+  ];
+
+  const bestValueFor = (row: CompareRow): number | null => {
+    if (!row.best) return null;
+    const mode = row.bestMode ?? 'max';
+    const values = models.map((m) => row.best!(m)).filter((v): v is number => v != null);
+    if (values.length === 0) return null;
+    return mode === 'min' ? Math.min(...values) : Math.max(...values);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div
+        ref={dialogRef}
+        className="modal-content compare-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={compareTitleId}
+        tabIndex={-1}
+      >
+        <button type="button" className="close-button" onClick={onClose} aria-label="Close comparison">
+          <IconClose width={14} height={14} />
+        </button>
+
+        <div className="modal-header">
+          <h2 id={compareTitleId} className="modal-title">
+            Compare models
+          </h2>
+        </div>
+
+        <div className="compare-table-wrap">
+          <table className="compare-table">
+            <thead>
+              <tr>
+                <th className="compare-table-label" scope="col">Attribute</th>
+                {models.map((m) => (
+                  <th key={m.model_id} scope="col">
+                    <div className="compare-th">
+                      <div className="compare-th-name">{sanitizeModelName(m.name)}</div>
+                      <div className="compare-th-id">{sanitizeModelId(m.model_id)}</div>
+                      <button
+                        type="button"
+                        className="compare-th-remove"
+                        onClick={() => onRemove(m.model_id)}
+                        aria-label={`Remove ${sanitizeModelName(m.name)} from comparison`}
+                      >
+                        <IconClose width={11} height={11} /> Remove
+                      </button>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const bestValue = bestValueFor(row);
+                return (
+                  <tr key={row.label}>
+                    <th className="compare-table-label" scope="row">{row.label}</th>
+                    {models.map((m) => {
+                      const value = row.best?.(m);
+                      const isBest = bestValue != null && value != null && value === bestValue;
+                      return (
+                        <td key={m.model_id} className={isBest ? 'compare-best' : undefined}>
+                          {row.render(m)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
