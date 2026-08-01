@@ -5,7 +5,7 @@ import { AlternativesModal } from './components/AlternativesModal';
 import { VirtualizedModelList } from './components/VirtualizedModelList';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ErrorBoundary, ModelListFallback, SidebarFallback, ContentHeaderFallback, ModalFallback } from './components/ErrorBoundary';
-import { IconWarning } from './components/icons';
+import { IconWarning, IconClose, IconChevronDown, IconBrand } from './components/icons';
 import type { IntelligenceRecord, ExplorerData } from './schemas/api';
 import { PROVIDER_LINKS } from './schemas/api';
 import { providerId, type ModelId, type ProviderId } from './domain/branded';
@@ -87,11 +87,14 @@ export default function App() {
   }, [selectedProviderId, debouncedSearchQuery, freeOnly, sortKey, setSearchParams]);
 
   // Keep the `alt` URL param in sync with modal visibility (deep-linkable modal).
+  // A fresh deep link arrives with `originalModel === null`, so the param is
+  // preserved until the modal opens (or a close removes it) — otherwise the
+  // deep-link effect below could never observe it.
   useEffect(() => {
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
       if (isOpen && originalModel) params.set('alt', originalModel.model_id);
-      else params.delete('alt');
+      else if (!isOpen && originalModel) params.delete('alt');
       return params;
     }, { replace: true });
   }, [isOpen, originalModel, setSearchParams]);
@@ -241,13 +244,13 @@ export default function App() {
       <div className="dashboard-layout">
         <aside className="sidebar">
           <div className="sidebar-header">
-            <div className="brand">
-              <span className="brand-icon">⬡</span>
+            <h1 className="brand">
+              <IconBrand className="brand-icon" width={22} height={22} />
               <div>
                 <div className="brand-name">BaseModel</div>
                 <div className="brand-sub">Explorer</div>
               </div>
-            </div>
+            </h1>
           </div>
           <div className="sidebar-menu">
             {[...Array(8)].map((_, i) => (
@@ -293,13 +296,13 @@ export default function App() {
       <ErrorBoundary fallback={<SidebarFallback onRetry={retry} />} resetKey={retryCount}>
         <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="brand">
-            <span className="brand-icon">⬡</span>
+          <h1 className="brand">
+            <IconBrand className="brand-icon" width={22} height={22} />
             <div>
               <div className="brand-name">BaseModel</div>
               <div className="brand-sub">Explorer</div>
             </div>
-          </div>
+          </h1>
         </div>
 
         <div
@@ -308,7 +311,7 @@ export default function App() {
           aria-label="Model categories"
           onKeyDown={handleTabListKeyDown}
         >
-          <div className="menu-section-title">Overview</div>
+          <h2 className="menu-section-title">Overview</h2>
           <button
             type="button"
             className={`menu-item ${selectedProviderId === 'all' ? 'active' : ''}`}
@@ -323,7 +326,7 @@ export default function App() {
             <span className="menu-badge">{data.models.length}</span>
           </button>
 
-          <div className="menu-section-title sidebar-section-title">Providers</div>
+          <h2 className="menu-section-title sidebar-section-title">Providers</h2>
           {data.providers
             .filter((p) => (providerCounts.get(p.provider_id) ?? 0) > 0)
             .sort((a, b) => (providerCounts.get(b.provider_id) ?? 0) - (providerCounts.get(a.provider_id) ?? 0))
@@ -378,7 +381,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="main-content">
-        <ErrorBoundary fallback={<ContentHeaderFallback />} resetKey={retryCount}>
+        <ErrorBoundary fallback={<ContentHeaderFallback onRetry={retry} />} resetKey={retryCount}>
           <div className="content-header">
             <div className="header-left">
               <h2 className="content-title">{pageTitle}</h2>
@@ -399,16 +402,19 @@ export default function App() {
               </label>
 
               <label htmlFor="sort-select" className="visually-hidden">Sort by</label>
-              <select
-                id="sort-select"
-                className="sort-select"
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
-              >
-                <option value="name">Sort: Name</option>
-                <option value="context">Sort: Context ↓</option>
-                <option value="date">Sort: Newest</option>
-              </select>
+              <div className="sort-select-wrapper">
+                <select
+                  id="sort-select"
+                  className="sort-select"
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value as SortKey)}
+                >
+                  <option value="name">Sort: Name</option>
+                  <option value="context">Sort: Context ↓</option>
+                  <option value="date">Sort: Newest</option>
+                </select>
+                <IconChevronDown width={12} height={12} />
+              </div>
 
               {hasActiveFilters && (
                 <button
@@ -430,10 +436,18 @@ export default function App() {
                   placeholder="Filter models…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      if (searchQuery) setSearchQuery('');
+                      else e.currentTarget.blur();
+                    }
+                  }}
                   aria-label="Filter models"
                 />
                 {searchQuery && (
-                  <button type="button" className="search-clear" onClick={() => setSearchQuery('')} aria-label="Clear search">✕</button>
+                  <button type="button" className="search-clear" onClick={() => setSearchQuery('')} aria-label="Clear search">
+                    <IconClose width={11} height={11} />
+                  </button>
                 )}
               </div>
             </div>
@@ -446,6 +460,7 @@ export default function App() {
               models={filtered}
               getTier={getTierForModel}
               onClick={handleModelClick}
+              onClearFilters={clearFilters}
               loading={loading}
             />
           </ErrorBoundary>

@@ -1,14 +1,19 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef, useCallback } from 'react';
 import type { Model } from '../types';
 import { ModelCard } from './ModelCard';
 import { SkeletonCard } from './SkeletonCard';
 import { IconBox } from './icons';
 
+const MIN_CARD_WIDTH = 300;
+const CARD_GAP = 8;
+const LOADING_CARD_COUNT = 12;
+
 interface VirtualizedModelListProps {
   models: Model[];
   getTier: (modelId: string) => string;
   onClick: (modelId: string) => void;
+  onClearFilters?: () => void;
   loading?: boolean;
 }
 
@@ -16,40 +21,48 @@ export function VirtualizedModelList({
   models,
   getTier,
   onClick,
+  onClearFilters,
   loading = false,
 }: VirtualizedModelListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [columns, setColumns] = useState(1);
 
-  const measureElement = useCallback((index: number): number => {
-    const element = itemRefs.current.get(index);
-    if (element) {
-      return element.getBoundingClientRect().height;
+  // Derive column count from the actual scroll-container width so the
+  // virtualized grid reflows with the viewport.
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const update = () => {
+      const width = el.clientWidth;
+      setColumns(Math.max(1, Math.floor((width + CARD_GAP) / (MIN_CARD_WIDTH + CARD_GAP))));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Chunk the flat model list into rows of `columns` cards so each virtual
+  // item renders one CSS grid row.
+  const rows = useMemo(() => {
+    const out: Model[][] = [];
+    for (let i = 0; i < models.length; i += columns) {
+      out.push(models.slice(i, i + columns));
     }
-    // Fallback estimate based on content (compact card)
-    const model = models[index];
-    if (!model) return 96;
-    const modalityCount = model.modality?.length ?? 0;
-    const metaLines = Math.ceil((1 + modalityCount) / 4);
-    // Base height + wrapping meta line when many modality pills exist
-    return 84 + Math.max(0, metaLines - 1) * 18;
-  }, [models]);
+    return out;
+  }, [models, columns]);
+
+  const loadingRows = Math.max(1, Math.ceil(LOADING_CARD_COUNT / columns));
 
   const virtualizer = useVirtualizer({
-    count: loading ? 12 : models.length,
+    count: loading ? loadingRows : rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: measureElement,
-    gap: 8,
-    overscan: 5,
+    estimateSize: useCallback(() => 88, []),
+    gap: CARD_GAP,
+    overscan: 4,
   });
 
-  const setItemRef = useCallback((index: number, element: HTMLDivElement | null) => {
-    if (element) {
-      itemRefs.current.set(index, element);
-    } else {
-      itemRefs.current.delete(index);
-    }
-  }, []);
+  const rowGridStyle = { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` };
 
   if (loading) {
     return (
@@ -58,14 +71,14 @@ export function VirtualizedModelList({
           {virtualizer.getVirtualItems().map((virtualRow) => (
             <div
               key={virtualRow.index}
-              ref={(el) => setItemRef(virtualRow.index, el)}
-              className="virtualized-item"
-              style={{
-                transform: `translateY(${virtualRow.start}px)`,
-                height: `${virtualRow.size}px`,
-              }}
+              ref={virtualizer.measureElement}
+              data-index={virtualRow.index}
+              className="virtualized-row"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
-              <SkeletonCard />
+              <div className="virtualized-row-inner" style={rowGridStyle}>
+                {Array.from({ length: columns }, (_, i) => <SkeletonCard key={i} />)}
+              </div>
             </div>
           ))}
         </div>
@@ -79,6 +92,11 @@ export function VirtualizedModelList({
         <div className="empty-state">
           <div className="empty-icon"><IconBox width={24} height={24} /></div>
           <div>No models match your filters.</div>
+          {onClearFilters && (
+            <button type="button" className="empty-state-action" onClick={onClearFilters}>
+              Clear all filters
+            </button>
+          )}
         </div>
       </div>
     );
@@ -88,22 +106,26 @@ export function VirtualizedModelList({
     <div ref={parentRef} className="virtualized-list">
       <div className="virtualized-list-inner" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
-          const model = models[virtualRow.index];
+          const row = rows[virtualRow.index];
+          if (!row) return null;
           return (
             <div
-              key={model.model_id}
-              ref={(el) => setItemRef(virtualRow.index, el)}
-              className="virtualized-item"
-              style={{
-                transform: `translateY(${virtualRow.start}px)`,
-                height: `${virtualRow.size}px`,
-              }}
+              key={virtualRow.index}
+              ref={virtualizer.measureElement}
+              data-index={virtualRow.index}
+              className="virtualized-row"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
-              <ModelCard
-                model={model}
-                tier={getTier(model.model_id)}
-                onClick={onClick}
-              />
+              <div className="virtualized-row-inner" style={rowGridStyle}>
+                {row.map((model) => (
+                  <ModelCard
+                    key={model.model_id}
+                    model={model}
+                    tier={getTier(model.model_id)}
+                    onClick={onClick}
+                  />
+                ))}
+              </div>
             </div>
           );
         })}

@@ -64,3 +64,31 @@ export function IconBox(props: IconProps) {
     </Icon>
   );
 }
+
+export function IconClose(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </Icon>
+  );
+}
+
+export function IconChevronDown(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function IconBrand(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <polygon points="12 2.5 21 7.25 21 16.75 12 21.5 3 16.75 3 7.25 12 2.5" />
+      <line x1="12" y1="2.5" x2="12" y2="21.5" />
+      <line x1="3" y1="7.25" x2="12" y2="12" />
+      <line x1="21" y1="7.25" x2="12" y2="12" />
+    </Icon>
+  );
+}

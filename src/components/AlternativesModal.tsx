@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Model, Alternative } from '../schemas/api';
 import { sanitizeModelName, sanitizeModelId, sanitizeReason } from '../utils/sanitize';
+import { IconClose } from './icons';
 
 interface AlternativesModalProps {
   isOpen: boolean;
@@ -116,7 +117,7 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
           onClick={onClose}
           aria-label="Close modal"
         >
-          ✕
+          <IconClose width={14} height={14} />
         </button>
 
         <div className="modal-header">

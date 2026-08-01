@@ -125,11 +125,14 @@ export function SidebarFallback({ onRetry }: { onRetry?: () => void }) {
 }
 
 // Content Header Error Boundary Fallback
-export function ContentHeaderFallback() {
+export function ContentHeaderFallback({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="content-header">
       <div className="header-left">
         <h2 className="content-title">Error</h2>
+      </div>
+      <div className="header-controls">
+        <button type="button" className="retry-btn" onClick={onRetry}>↻ Retry</button>
       </div>
     </div>
   );
