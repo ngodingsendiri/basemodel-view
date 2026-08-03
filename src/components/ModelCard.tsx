@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Model } from '../types';
-import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
+import { formatCtx, formatReleaseDate, formatCost, displayModelName } from '../utils/format';
 import { copyText } from '../utils/clipboard';
 import { TIER_CLASS, MODALITY_LABEL, MAX_COMPARE } from './ui/constants';
 import { IconTag, IconCheck, IconCopy } from './icons';
@@ -52,6 +52,7 @@ export function ModelCard({ model, tier, price, compareSelected, compareDisabled
   const modalities = model.modality ?? [];
   const visibleModalities = modalities.slice(0, MAX_VISIBLE_MODALITIES);
   const hiddenModalityCount = modalities.length - visibleModalities.length;
+  const displayName = displayModelName(model.name);
 
   const handleClick = () => onClick(model.model_id);
 
@@ -61,11 +62,11 @@ export function ModelCard({ model, tier, price, compareSelected, compareDisabled
         type="button"
         className="model-card-hitarea"
         onClick={handleClick}
-        aria-label={`View details for ${model.name}`}
+        aria-label={`View details for ${displayName}`}
       >
         {/* Top Line: name + tier badge */}
         <span className="card-topline">
-          <span className="model-name" title={model.name}>{model.name}</span>
+          <span className="model-name" title={displayName}>{displayName}</span>
           <span className={`tier-badge ${TIER_CLASS[tier] ?? 'badge-tier-unknown'}`}>
             {isFree ? (
               <>
@@ -75,11 +76,6 @@ export function ModelCard({ model, tier, price, compareSelected, compareDisabled
               tier
             )}
           </span>
-        </span>
-
-        {/* Id Line: model id */}
-        <span className="card-idline">
-          <span className="model-id" title={model.model_id}>{model.model_id}</span>
         </span>
 
         {/* Meta Line: stats + modality pills */}

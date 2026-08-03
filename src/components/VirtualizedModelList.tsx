@@ -96,7 +96,7 @@ export function VirtualizedModelList({
   const virtualizer = useVirtualizer({
     count: loading ? loadingRows : rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: useCallback(() => 88, []),
+    estimateSize: useCallback(() => 76, []),
     gap: CARD_GAP,
     overscan: 4,
   });

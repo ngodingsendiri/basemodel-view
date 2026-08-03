@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Model, Alternative } from '../schemas/api';
 import { useModal } from '../hooks/useModal';
-import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
+import { formatCtx, formatReleaseDate, formatCost, displayModelName } from '../utils/format';
 import { copyText } from '../utils/clipboard';
 import { TIER_CLASS } from './ui/constants';
 import { IconClose, IconExternal } from './icons';
@@ -100,7 +100,7 @@ export function AlternativesModal({
 
         <div className="modal-header">
           <h2 id={modalTitleId} className="modal-title">
-            {originalModel.name}
+            {displayModelName(originalModel.name)}
           </h2>
           {providerName && (
             <div className="modal-provider">
@@ -187,7 +187,7 @@ export function AlternativesModal({
                 const altPrice = getPrice?.(alt.model_id);
                 const info = (
                   <div className="alt-item-info">
-                    <div className="alt-item-name">{alt.name}</div>
+                    <div className="alt-item-name">{displayModelName(alt.name)}</div>
                     <div className="alt-item-meta">
                       <span className="alt-item-id">{alt.model_id}</span>
                       {altPrice !== undefined && altPrice > 0 && (
@@ -204,7 +204,7 @@ export function AlternativesModal({
                         type="button"
                         className="alt-item-nav"
                         onClick={() => onSelectAlternative(alt.model_id)}
-                        aria-label={`View details for ${alt.name}`}
+                        aria-label={`View details for ${displayModelName(alt.name)}`}
                       >
                         {info}
                       </button>

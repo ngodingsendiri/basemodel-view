@@ -19,7 +19,6 @@
   animation: pulse 1.6s ease-in-out infinite;
 }
 .sk-block-name { flex: 1; height: 12px; }
-.sk-block-id { width: 180px; height: 9px; }
 .sk-block-ctx { width: 60px; height: 10px; }
 .sk-block-date { width: 48px; height: 10px; }
 .sk-block-modality { width: 30px; height: 14px; border-radius: var(--radius-xs); }

@@ -5,7 +5,6 @@ export function SkeletonCard() {
         <div className="sk-block sk-block-name" />
         <div className="sk-block sk-block-tier" />
       </div>
-      <div className="sk-block sk-block-id" />
       <div className="sk-row sk-row-gap">
         <div className="sk-block sk-block-ctx" />
         <div className="sk-block sk-block-date" />
