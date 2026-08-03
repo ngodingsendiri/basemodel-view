@@ -320,22 +320,38 @@ export default function App() {
         <aside className="sidebar">
           <div className="sidebar-header">
             <h1 className="brand">
-              <IconBrand className="brand-icon" width={22} height={22} />
-              <div>
-                <div className="brand-name">BaseModel</div>
-                <div className="brand-sub">Explorer</div>
-              </div>
+              <button type="button" className="brand-btn" onClick={goHome} aria-label="Go to home" title="Go to all providers">
+                <IconBrand className="brand-icon" width={22} height={22} />
+                <span className="brand-text">
+                  <span className="brand-name">BaseModel</span>
+                  <span className="brand-sub">Explorer</span>
+                </span>
+              </button>
             </h1>
+            <div className="sk-block sk-block-icon" />
           </div>
           <div className="sidebar-menu">
-            {[...Array(8)].map((_, i) => (
+            <div className="sk-block sk-block-large" />
+            <div className="sk-block sk-block-search-sm" />
+            {[...Array(6)].map((_, i) => (
               <div key={i} className="sk-block sk-block-large" />
             ))}
           </div>
         </aside>
         <main className="main-content">
           <div className="content-header">
-            <div className="sk-block sk-block-header" />
+            <div className="header-left">
+              <div className="sk-block sk-block-title" />
+            </div>
+            <div className="search-wrap">
+              <div className="sk-block sk-block-search" />
+            </div>
+            <div className="header-controls">
+              <div className="sk-block sk-block-chip" />
+              <div className="sk-block sk-block-chip" />
+              <div className="sk-block sk-block-chip" />
+              <div className="sk-block sk-block-chip" />
+            </div>
           </div>
           <div className="content-body">
             {[...Array(12)].map((_, i) => <SkeletonCard key={i} />)}
