@@ -1,0 +1,31 @@
+/* Skeleton card */
+.skeleton-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sk-row { display: flex; align-items: center; }
+.sk-row-space-between { justify-content: space-between; }
+.sk-row-gap { gap: 4px; }
+
+.sk-block {
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.sk-block-name { flex: 1; height: 12px; }
+.sk-block-id { width: 180px; height: 9px; }
+.sk-block-ctx { width: 60px; height: 10px; }
+.sk-block-date { width: 48px; height: 10px; }
+.sk-block-modality { width: 30px; height: 14px; border-radius: 4px; }
+.sk-block-tier { width: 44px; height: 14px; border-radius: 4px; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}

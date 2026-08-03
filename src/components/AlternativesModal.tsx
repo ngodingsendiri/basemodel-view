@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Model, Alternative } from '../schemas/api';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { sanitizeModelName, sanitizeModelId, sanitizeReason } from '../utils/sanitize';
 import { formatCost } from '../utils/format';
 import { IconClose } from './icons';
@@ -58,7 +59,7 @@ function fallbackCopy(text: string): boolean {
 }
 
 export function AlternativesModal({ isOpen, onClose, originalModel, alternatives, onSelectAlternative, getPrice }: AlternativesModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
+  const modalRef = useFocusTrap(isOpen && !!originalModel);
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const [showAll, setShowAll] = useState(false);
   const visibleAlternatives = showAll ? alternatives : alternatives.slice(0, INITIAL_VISIBLE);
@@ -72,7 +73,6 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
     if (isOpen) {
       previousActiveElement.current = document.activeElement as HTMLElement;
       document.body.style.overflow = 'hidden';
-      modalRef.current?.focus();
     } else {
       document.body.style.overflow = '';
       previousActiveElement.current?.focus();
@@ -87,21 +87,6 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
       if (!isOpen) return;
       if (e.key === 'Escape') {
         onClose();
-      }
-      if (e.key === 'Tab') {
-        const focusableElements = modalRef.current?.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusableElements?.length) return;
-        const first = focusableElements[0];
-        const last = focusableElements[focusableElements.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
       }
     };
     document.addEventListener('keydown', handleKeyDown);

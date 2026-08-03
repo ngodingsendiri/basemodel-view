@@ -7,5 +7,5 @@ export {
   ModelsResponseSchema,
   ProvidersResponseSchema,
   IntelligenceResponseSchema,
-  PROVIDER_LINKS,
 } from './schemas/api';
+export { PROVIDER_LINKS } from './config/providers';

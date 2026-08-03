@@ -82,12 +82,12 @@ export class GitHubModelRepository implements ModelRepository {
     this.lastRequestTime = 0;
   }
 
-  getCachedData(): CachedData | null {
+  getCachedData(ignoreTTL = false): CachedData | null {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as CachedData;
-      if (Date.now() - parsed.timestamp > CACHE_TTL) return null;
+      if (!ignoreTTL && Date.now() - parsed.timestamp > CACHE_TTL) return null;
       return parsed;
     } catch {
       return null;

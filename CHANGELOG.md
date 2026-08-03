@@ -2,6 +2,27 @@
 
 All notable changes to BaseModel Explorer are documented here.
 
+## [Unreleased] — 2026-08-03
+
+### Refactor & Architecture
+
+- **`useExplorerData` hook**: extracted data loading (SWR cache seeding, background revalidate, retry, graceful degradation, lookup maps) out of `App.tsx`
+- **`useFilters` hook**: extracted filter state + URL search-param sync out of `App.tsx`
+- **`App.tsx` simplification**: removed ~174 lines of inline data-loading/filter logic; now composes `useExplorerData`, `useFilters`, and `useFilteredModels`
+- **Removed `filterModels`/`sortModels` from domain**: filter/sort logic lives solely in `useFilteredModels`; `ModelRepository` interface trimmed to data access
+- **`PROVIDER_LINKS` relocated**: from `src/schemas/api.ts` to `src/config/providers.ts` — provider links no longer live in the validation layer
+- **CSS modularization**: monolithic `index.css` split into per-component files (`Sidebar.css`, `ModelCard.css`, `VirtualizedModelList.css`, `AlternativesModal.css`, `CompareModal.css`, `CompareBar.css`, `SkeletonCard.css`) imported in cascade order from `index.css`
+- **Modal focus trap**: `AlternativesModal` and `CompareModal` now share the `useFocusTrap` hook (removed duplicated trap code)
+
+### Features
+
+- **Provider-name search**: search query now matches provider names in addition to model names/IDs
+
+### Testing
+
+- **50 unit tests** (+12: `useExplorerData`, `useFilters`, provider-name search)
+- **15 E2E tests** (unchanged, all passing)
+
 ## [1.1.0] — 2026-08-01
 
 ### Features

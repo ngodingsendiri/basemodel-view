@@ -71,10 +71,13 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design document.
 
 ```
 src/
-├── App.tsx                          # Root component: layout, state, SWR, URL sync
+├── App.tsx                          # Root component: layout, modals, URL deep-links
 ├── main.tsx                         # Entry point: providers, router, top-level ErrorBoundary
-├── index.css                        # Global styles (CSS custom properties, design tokens)
+├── index.css                        # Global styles + per-component CSS imports (design tokens)
 ├── types.ts                         # Public type re-exports from schemas
+│
+├── config/
+│   └── providers.ts                 # PROVIDER_LINKS map (provider id → dashboard/API-key URL)
 │
 ├── schemas/
 │   ├── api.ts                       # Zod schemas + derived types (Model, Provider, IntelligenceRecord, etc.)
@@ -83,8 +86,8 @@ src/
 ├── domain/
 │   ├── branded.ts                   # Branded types (ModelId, ProviderId) + assertion helpers
 │   └── models/
-│       ├── index.ts                 # ModelRepository/ModelService interfaces, sort logic
-│       └── ModelServiceImpl.ts      # Business logic: filtering, tier mapping, data orchestration
+│       ├── index.ts                 # ModelRepository/ModelService interfaces + CachedData
+│       └── ModelServiceImpl.ts      # Data orchestration: fetch + merge explorer/intelligence
 │
 ├── infrastructure/
 │   └── data/github/
@@ -113,7 +116,9 @@ src/
 │   ├── useAlternativesModal.ts      # Modal state: open/close, originalModel, selectedAlternatives
 │   ├── useCompare.ts                # Compare selection state (Set of model IDs)
 │   ├── useDebouncedValue.ts         # Generic debounce hook (150ms default)
+│   ├── useExplorerData.ts           # Data loading: SWR cache, graceful degradation, retry, lookups
 │   ├── useFilteredModels.ts         # Filtering + sorting via memoized tier/price maps
+│   ├── useFilters.ts                # Filter state + URL search-param sync
 │   └── useFocusTrap.ts             # Keyboard focus trap for modals
 │
 ├── types/
@@ -141,6 +146,7 @@ src/
 
 - **Provider sidebar** with model counts per provider (sorted by count descending)
 - **Search input** with 150ms debounce (avoids recomputing filters on every keystroke); `Escape` clears the query
+- Search matches **model name, model ID, and provider name**
 - **Free-only toggle** to show only zero-cost models
 - **Sort dropdown**: Name (A-Z), Context (descending), Newest first, Price (ascending)
 - **Clear filters** button visible when any filter is active
@@ -202,7 +208,7 @@ src/
 ### Provider Integration
 
 - **API key links** in sidebar footer for 18 providers (OpenAI, Anthropic, Google, etc.)
-- Typed as `ReadonlyMap<ProviderId, string>` in `src/schemas/api.ts`
+- Typed as `ReadonlyMap<ProviderId, string>` in `src/config/providers.ts`
 
 ## Configuration
 

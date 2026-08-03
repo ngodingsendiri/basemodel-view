@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Model, Provider } from '../schemas/api';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
 import { MODALITY_LABEL } from './ui/constants';
 import { IconClose } from './icons';
@@ -17,32 +18,17 @@ interface CompareModalProps {
 }
 
 export function CompareModal({ models, providers, getTier, getPrice, onClose, onRemove }: CompareModalProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useFocusTrap(true);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
   const providerNames = new Map(providers.map((p) => [p.provider_id, p.name]));
 
   useEffect(() => {
-    const previousActiveElement = document.activeElement as HTMLElement;
+    previousActiveElement.current = document.activeElement as HTMLElement;
     document.body.style.overflow = 'hidden';
-    dialogRef.current?.focus();
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
-      }
-      if (e.key === 'Tab') {
-        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusable?.length) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
       }
     };
 
@@ -50,7 +36,7 @@ export function CompareModal({ models, providers, getTier, getPrice, onClose, on
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
-      previousActiveElement.focus();
+      previousActiveElement.current?.focus();
     };
   }, [onClose]);
 

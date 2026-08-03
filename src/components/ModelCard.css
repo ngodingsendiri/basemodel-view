@@ -1,0 +1,244 @@
+/* Model Card */
+.model-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  display: flex;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.model-card-hitarea {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.model-card:hover {
+  border-color: rgba(255,255,255,0.18);
+  background: var(--bg-hover);
+  box-shadow: 0 4px 16px -4px rgba(0,0,0,0.4), 0 0 10px -4px var(--accent-glow);
+}
+
+.model-card:hover::after { opacity: 1; }
+
+.model-card--free {
+  border-color: rgba(16,185,129,0.2);
+}
+
+.model-card--free:hover {
+  border-color: rgba(16,185,129,0.4);
+  box-shadow: 0 4px 16px -4px rgba(0,0,0,0.4), 0 0 12px -4px var(--green-glow);
+}
+
+.model-card:focus-within {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 16px -4px rgba(0,0,0,0.4), 0 0 10px -4px var(--accent-glow);
+}
+
+/* Top line: name + tier badge */
+.card-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.model-name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Id line: model id + copy */
+.card-idline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding-right: 22px;
+}
+
+.model-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Copy button */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 3px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.model-card:hover .copy-btn,
+.model-card:focus-within .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--accent); background: var(--accent-glow); }
+
+.model-card .copy-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.modal-content .copy-btn { opacity: 1; }
+.modal-content .copy-btn:hover { color: var(--accent); background: var(--accent-glow); }
+
+/* Meta line: stats + modality pills */
+.card-metaline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-chip svg { color: var(--text-muted); }
+
+.modality-chips {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.modality-chip {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.modality-chip--more {
+  color: var(--text-secondary);
+  border-style: dashed;
+}
+
+/* Tier badge */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.badge-tier-free     { background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+.badge-tier-budget   { background: rgba(59,130,246,0.12); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); }
+.badge-tier-balanced { background: rgba(139,92,246,0.12); color: var(--purple); border: 1px solid rgba(139,92,246,0.3); }
+.badge-tier-premium  { background: rgba(245,158,11,0.12); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+.badge-tier-unknown  { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border-soft); }
+
+/* Price display */
+.stat-chip--price {
+  color: var(--text-primary);
+}
+
+/* Compare toggle (card) */
+.card-metaline { padding-right: 26px; }
+
+.compare-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: color 0.15s, background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.model-card:hover .compare-toggle,
+.model-card:focus-within .compare-toggle { opacity: 1; }
+
+.compare-toggle:hover {
+  color: var(--accent);
+  background: var(--accent-glow);
+  border-color: rgba(59,130,246,0.4);
+}
+
+.compare-toggle[aria-pressed="true"] {
+  color: #fff;
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  opacity: 1;
+}
+
+.compare-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}

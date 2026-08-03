@@ -7,8 +7,8 @@ BaseModel Explorer follows a layered architecture that separates concerns into d
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   Presentation                       │
-│  App.tsx · Components · Hooks (useFilteredModels,   │
-│  useAlternativesModal, useDebouncedValue)             │
+│  App.tsx · Components · Hooks (useExplorerData,      │
+│  useFilters, useFilteredModels, useAlternativesModal) │
 ├─────────────────────────────────────────────────────┤
 │                 Context (DI)                         │
 │  ModelRegistryProvider → ModelRegistryContext         │
@@ -17,7 +17,6 @@ BaseModel Explorer follows a layered architecture that separates concerns into d
 │                   Domain                             │
 │  ModelServiceImpl · ModelRepository interface        │
 │  Branded types (ModelId, ProviderId)                 │
-│  FilterOptions · FilteredResult · sortModels()       │
 ├─────────────────────────────────────────────────────┤
 │                Infrastructure                        │
 │  GitHubModelRepository (fetch, retry, circuit        │
@@ -30,11 +29,11 @@ BaseModel Explorer follows a layered architecture that separates concerns into d
 
 ```
 App.tsx
-  ├── useModelService()    → ModelServiceImpl
-  ├── useModelRepository() → GitHubModelRepository
-  ├── useFilteredModels()  → pure filter/sort hook
+  ├── useExplorerData()  → data loading (SWR, retry, lookup maps)
+  ├── useFilters()       → filter state + URL sync
+  ├── useFilteredModels() → pure filter/sort hook
   ├── useAlternativesModal() → modal state hook
-  └── useDebouncedValue()  → generic debounce hook
+  └── useCompare()       → compare selection state
 
 main.tsx
   └── <ModelRegistryProvider>
@@ -50,11 +49,11 @@ All dependencies flow inward: presentation → context → domain → infrastruc
 
 ```
 App mounts
-  → loadData()
-    → repository.getCachedData()          // serve stale cache instantly
-    → setData(cached)                     // render immediately
-    → service.getExplorerData()           // fetch fresh data in background
-    → service.getIntelligenceRecords()
+  → useExplorerData()
+    → repository.getCachedData(ignoreTTL: true)  // serve stale cache instantly (SWR)
+    → loadData()
+    → service.getExplorerData() + getIntelligenceRecords()   // Promise.allSettled
+    → graceful degradation: intelligence failure keeps catalog usable
     → filter orphaned intelligence records
     → repository.writeCache(newData)      // update cache for next load
 ```
@@ -63,13 +62,12 @@ App mounts
 
 ```
 User changes filter (provider, search, free-only, sort)
-  → URL params updated (useSearchParams, functional update)
-  → useDebouncedValue (150ms) for search input
+  → useFilters() updates state + URL params (functional update, debounce 150ms)
   → useFilteredModels receives new deps
-    → builds tierMap (Map<ModelId, tier>) once per intelligenceByModel change
-    → filters: provider → free-only → search query
-    → sorts: name | context (desc) | date (desc)
-    → returns { filtered, getTierForModel }
+    → builds tierMap/priceMap (Map<ModelId, ...>) once per intelligenceByModel change
+    → filters: provider → free-only → search query (name, model id, provider name)
+    → sorts: name | context (desc) | date (desc) | price (asc)
+    → returns { filtered, getTierForModel, getPriceForModel }
   → VirtualizedModelList re-renders only visible rows
 ```
 
@@ -150,6 +148,7 @@ Only active under failure pressure (`circuitFailureCount > 0`). When active, enf
 - **TTL**: 10 minutes
 - **Storage**: localStorage (best-effort, quota errors ignored)
 - **Content**: `{ data: ExplorerData, intelligenceRecords: IntelligenceRecord[], timestamp: number }`
+- **SWR reads**: `getCachedData(ignoreTTL: true)` serves stale cache instantly while a background refresh runs
 
 ## Error Boundaries
 
@@ -228,14 +227,14 @@ All dynamic text rendered in the DOM goes through `src/utils/sanitize.ts`:
 
 ```
 dist/
-  index.html                    1.75 kB
-  assets/index-*.css           15.04 kB  (gzip: 3.40 kB)
-  assets/rolldown-runtime-*.js  0.58 kB  (gzip: 0.36 kB)
-  assets/modal-*.js            11.52 kB  (gzip: 4.27 kB)
-  assets/vendor-*.js           25.16 kB  (gzip: 7.80 kB)
-  assets/index-*.js            29.62 kB  (gzip: 9.04 kB)
-  assets/vendor-zod-*.js       64.09 kB  (gzip: 17.27 kB)
-  assets/vendor-react-*.js    215.49 kB  (gzip: 69.06 kB)
+  index.html                    1.64 kB
+  assets/index-*.css           20.78 kB  (gzip: 4.43 kB)
+  assets/rolldown-runtime-*.js  0.56 kB  (gzip: 0.36 kB)
+  assets/modal-*.js            15.00 kB  (gzip: 5.46 kB)
+  assets/vendor-*.js           25.19 kB  (gzip: 7.81 kB)
+  assets/index-*.js            35.45 kB  (gzip: 10.44 kB)
+  assets/vendor-zod-*.js       64.17 kB  (gzip: 17.30 kB)
+  assets/vendor-react-*.js    218.97 kB  (gzip: 70.16 kB)
 ```
 
-Total gzipped: ~112 KB. The vendor-react chunk (69 KB gzipped) is the React runtime and is preloaded by default.
+Total gzipped: ~115 KB. The vendor-react chunk (70 KB gzipped) is the React runtime and is preloaded by default.

@@ -2,12 +2,17 @@
 import { renderHook } from '@testing-library/react';
 import { useFilteredModels } from './useFilteredModels';
 import { modelId, providerId } from '../domain/branded';
-import type { Model, IntelligenceRecord } from '../schemas/api';
+import type { Model, Provider, IntelligenceRecord } from '../schemas/api';
 
 const mockModels: Model[] = [
   { model_id: modelId('a/model1'), name: 'Alpha Model', provider_id: providerId('a'), context_window: 4096, release_date: '2024-01-01', modality: ['text'] },
   { model_id: modelId('b/model2'), name: 'Beta Model', provider_id: providerId('b'), context_window: 128000, release_date: '2024-06-01', modality: ['text', 'code'] },
   { model_id: modelId('a/model3'), name: 'Gamma Model', provider_id: providerId('a'), context_window: 32768, release_date: '2023-12-01', modality: ['text'] },
+];
+
+const mockProviders: Provider[] = [
+  { provider_id: providerId('a'), name: 'Acme Cloud' },
+  { provider_id: providerId('b'), name: 'Beta Labs' },
 ];
 
 const mockIntelligence: IntelligenceRecord[] = [
@@ -23,6 +28,7 @@ describe('useFilteredModels', () => {
     const { result } = renderHook(() =>
       useFilteredModels({
         models: mockModels,
+        providers: mockProviders,
         intelligenceByModel: mockIntelligenceByModel,
         selectedProviderId: providerId('a'),
         searchQuery: '',
@@ -39,6 +45,7 @@ describe('useFilteredModels', () => {
     const { result } = renderHook(() =>
       useFilteredModels({
         models: mockModels,
+        providers: mockProviders,
         intelligenceByModel: mockIntelligenceByModel,
         selectedProviderId: 'all',
         searchQuery: '',
@@ -55,6 +62,7 @@ describe('useFilteredModels', () => {
     const { result } = renderHook(() =>
       useFilteredModels({
         models: mockModels,
+        providers: mockProviders,
         intelligenceByModel: mockIntelligenceByModel,
         selectedProviderId: 'all',
         searchQuery: 'beta',
@@ -67,10 +75,28 @@ describe('useFilteredModels', () => {
     expect(result.current.filtered[0].name).toBe('Beta Model');
   });
 
+  it('filters by provider name in search query', () => {
+    const { result } = renderHook(() =>
+      useFilteredModels({
+        models: mockModels,
+        providers: mockProviders,
+        intelligenceByModel: mockIntelligenceByModel,
+        selectedProviderId: 'all',
+        searchQuery: 'acme',
+        freeOnly: false,
+        sortKey: 'name',
+      })
+    );
+
+    expect(result.current.filtered).toHaveLength(2);
+    expect(result.current.filtered.every(m => m.provider_id === 'a')).toBe(true);
+  });
+
   it('sorts by context descending', () => {
     const { result } = renderHook(() =>
       useFilteredModels({
         models: mockModels,
+        providers: mockProviders,
         intelligenceByModel: mockIntelligenceByModel,
         selectedProviderId: 'all',
         searchQuery: '',
@@ -88,6 +114,7 @@ describe('useFilteredModels', () => {
     const { result } = renderHook(() =>
       useFilteredModels({
         models: mockModels,
+        providers: mockProviders,
         intelligenceByModel: mockIntelligenceByModel,
         selectedProviderId: 'all',
         searchQuery: '',
@@ -105,6 +132,7 @@ describe('useFilteredModels', () => {
     const { result } = renderHook(() =>
       useFilteredModels({
         models: mockModels,
+        providers: mockProviders,
         intelligenceByModel: mockIntelligenceByModel,
         selectedProviderId: 'all',
         searchQuery: '',
@@ -123,6 +151,7 @@ describe('useFilteredModels', () => {
     const { result } = renderHook(() =>
       useFilteredModels({
         models: mockModels,
+        providers: mockProviders,
         intelligenceByModel: mockIntelligenceByModel,
         selectedProviderId: 'all',
         searchQuery: '',
@@ -141,6 +170,7 @@ describe('useFilteredModels', () => {
     const { result } = renderHook(() =>
       useFilteredModels({
         models: mockModels,
+        providers: mockProviders,
         intelligenceByModel: mockIntelligenceByModel,
         selectedProviderId: 'all',
         searchQuery: '',

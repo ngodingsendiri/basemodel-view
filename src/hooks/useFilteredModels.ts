@@ -1,10 +1,11 @@
 import { useMemo, useCallback } from 'react';
-import type { Model, IntelligenceRecord } from '../schemas/api';
+import type { Model, Provider, IntelligenceRecord } from '../schemas/api';
 import type { ModelId } from '../domain/branded';
 import type { SortKey, ProviderFilter } from '../types/filters';
 
-interface UseFilteredModelsProps {
+export interface UseFilteredModelsProps {
   models: Model[];
+  providers: Provider[];
   intelligenceByModel: ReadonlyMap<ModelId, IntelligenceRecord>;
   selectedProviderId: ProviderFilter;
   searchQuery: string;
@@ -14,6 +15,7 @@ interface UseFilteredModelsProps {
 
 export function useFilteredModels({
   models,
+  providers,
   intelligenceByModel,
   selectedProviderId,
   searchQuery,
@@ -57,8 +59,12 @@ export function useFilteredModels({
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
+      const providerNameById = new Map(providers.map((p) => [p.provider_id, p.name.toLowerCase()]));
       result = result.filter(
-        (m) => m.name.toLowerCase().includes(q) || m.model_id.toLowerCase().includes(q)
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.model_id.toLowerCase().includes(q) ||
+          (providerNameById.get(m.provider_id) ?? '').includes(q)
       );
     }
 
@@ -72,7 +78,7 @@ export function useFilteredModels({
       }
       return a.name.localeCompare(b.name);
     });
-  }, [models, selectedProviderId, searchQuery, freeOnly, sortKey, getTierForModel, priceMap]);
+  }, [models, providers, selectedProviderId, searchQuery, freeOnly, sortKey, getTierForModel, priceMap]);
 
   return { filtered, getTierForModel, getPriceForModel };
 }

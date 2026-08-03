@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
-import { useModelRepository, useModelService } from './context/modelRegistry/useModelRegistry';
 import { AlternativesModal } from './components/AlternativesModal';
 import { CompareBar } from './components/CompareBar';
 import { CompareModal } from './components/CompareModal';
@@ -8,87 +7,49 @@ import { VirtualizedModelList } from './components/VirtualizedModelList';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ErrorBoundary, ModelListFallback, SidebarFallback, ContentHeaderFallback, ModalFallback } from './components/ErrorBoundary';
 import { IconWarning, IconClose, IconChevronDown, IconBrand } from './components/icons';
-import type { IntelligenceRecord, ExplorerData } from './schemas/api';
-import { PROVIDER_LINKS } from './schemas/api';
-import { providerId, type ModelId, type ProviderId } from './domain/branded';
+import { PROVIDER_LINKS } from './config/providers';
+import type { ModelId } from './domain/branded';
+import type { SortKey } from './types/filters';
 import { sanitizeProviderName, sanitizeError } from './utils/sanitize';
-import { reportError } from './utils/errorReporting';
 import { useAlternativesModal } from './hooks/useAlternativesModal';
 import { useCompare } from './hooks/useCompare';
+import { useExplorerData } from './hooks/useExplorerData';
+import { useFilters } from './hooks/useFilters';
 import { useFilteredModels } from './hooks/useFilteredModels';
-import { useDebouncedValue } from './hooks/useDebouncedValue';
-import { parseBoolean, parseSortKey, type ProviderFilter, type SortKey } from './types/filters';
 import './index.css';
 
 export default function App() {
-  const service = useModelService();
-  const repository = useModelRepository();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Initialize filter state from URL params
-  const [selectedProviderId, setSelectedProviderId] = useState<ProviderFilter>(() => {
-    const raw = searchParams.get('provider');
-    return raw ? providerId(raw) : 'all';
-  });
-  const [searchQuery, setSearchQuery] = useState<string>(() => searchParams.get('q') ?? '');
-  const [freeOnly, setFreeOnly] = useState<boolean>(() => parseBoolean(searchParams.get('free')));
-  const [sortKey, setSortKey] = useState<SortKey>(() => parseSortKey(searchParams.get('sort')));
+  const {
+    data,
+    error,
+    loading,
+    lastUpdated,
+    retryCount,
+    retry,
+    modelsById,
+    intelligenceByModel,
+    providerCounts,
+  } = useExplorerData();
 
-  // Debounce the search input so each keystroke does not recompute filters.
-  const debouncedSearchQuery = useDebouncedValue(searchQuery, 150);
+  const {
+    selectedProviderId,
+    setSelectedProviderId,
+    searchQuery,
+    setSearchQuery,
+    debouncedSearchQuery,
+    freeOnly,
+    setFreeOnly,
+    sortKey,
+    setSortKey,
+    clearFilters,
+    hasActiveFilters,
+  } = useFilters();
 
-  const [data, setData] = useState<ExplorerData | null>(null);
-  const [intelligenceRecords, setIntelligenceRecords] = useState<IntelligenceRecord[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const [compareOpen, setCompareOpen] = useState(false);
 
-  // Build lookup structures once so filtering/clicks avoid O(n) scans.
-  const modelsById = useMemo(() => {
-    const map = new Map<ModelId, ExplorerData['models'][number]>();
-    for (const model of data?.models ?? []) {
-      map.set(model.model_id, model);
-    }
-    return map;
-  }, [data]);
-
-  const intelligenceByModel = useMemo(() => {
-    const map = new Map<ModelId, IntelligenceRecord>();
-    for (const record of intelligenceRecords) {
-      map.set(record.model_id, record);
-    }
-    return map;
-  }, [intelligenceRecords]);
-
-  // Precompute per-provider model counts so sidebar/total avoid O(n) scans.
-  const providerCounts = useMemo(() => {
-    const counts = new Map<ProviderId, number>();
-    for (const model of data?.models ?? []) {
-      counts.set(model.provider_id, (counts.get(model.provider_id) ?? 0) + 1);
-    }
-    return counts;
-  }, [data]);
-
   const { isOpen, originalModel, selectedAlternatives, open, close } = useAlternativesModal();
-
-  // Sync URL params when filter state changes. Uses a functional update so
-  // unrelated params (e.g. `alt`) are preserved.
-  useEffect(() => {
-    setSearchParams((prev) => {
-      const params = new URLSearchParams(prev);
-      if (selectedProviderId !== 'all') params.set('provider', selectedProviderId);
-      else params.delete('provider');
-      if (debouncedSearchQuery) params.set('q', debouncedSearchQuery);
-      else params.delete('q');
-      if (freeOnly) params.set('free', 'true');
-      else params.delete('free');
-      if (sortKey !== 'name') params.set('sort', sortKey);
-      else params.delete('sort');
-      return params;
-    }, { replace: true });
-  }, [selectedProviderId, debouncedSearchQuery, freeOnly, sortKey, setSearchParams]);
 
   // Keep the `alt` URL param in sync with modal visibility (deep-linkable modal).
   // Opening pushes a history entry so the Back button returns to the list and
@@ -142,70 +103,6 @@ export default function App() {
     }
   }, [searchParams, modelsById, intelligenceByModel, isOpen, originalModel, open]);
 
-  const loadData = useCallback(async (isRetry = false) => {
-    // Serve a fresh cache immediately, then revalidate in the background (SWR).
-    if (!isRetry) {
-      const cached = repository.getCachedData();
-      if (cached) {
-        setData(cached.data);
-        setIntelligenceRecords(cached.intelligenceRecords);
-        setLastUpdated(cached.timestamp);
-        setLoading(false);
-      }
-    }
-
-    if (repository.isCircuitOpen()) {
-      setError('Too many failed requests. Please wait before retrying.');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      if (isRetry) setLoading(true);
-      setError(null);
-
-      const [explorerData, intel] = await Promise.all([
-        service.getExplorerData(),
-        service.getIntelligenceRecords(),
-      ]);
-
-      // Referential integrity: keep only intelligence records that reference
-      // models present in the explorer dataset (avoids orphaned alternatives).
-      const knownModelIds = new Set(explorerData.models.map((m) => m.model_id));
-      const validIntel = intel.filter((i) => knownModelIds.has(i.model_id));
-
-      setData(explorerData);
-      setIntelligenceRecords(validIntel);
-      setLastUpdated(Date.now());
-
-      repository.writeCache({
-        data: explorerData,
-        intelligenceRecords: validIntel,
-        timestamp: Date.now(),
-      });
-    } catch (err) {
-      // Ignore aborted requests (e.g. triggered by unmount); never surface as errors.
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(message);
-      reportError(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [service, repository]);
-
-  useEffect(() => {
-    loadData(false);
-  }, [loadData]);
-
-  // Abort any in-flight request when the view unmounts.
-  useEffect(() => () => repository.abort(), [repository]);
-
-  const retry = useCallback(() => {
-    setRetryCount((c) => c + 1);
-    loadData(true);
-  }, [loadData]);
-
   const handleModelClick = useCallback((modelId: string) => {
     const id = modelId as ModelId;
     const model = modelsById.get(id);
@@ -224,18 +121,9 @@ export default function App() {
     open(model, intel?.alternatives ?? []);
   }, [modelsById, intelligenceByModel, open]);
 
-  const clearFilters = useCallback(() => {
-    setSelectedProviderId('all');
-    setSearchQuery('');
-    setFreeOnly(false);
-    setSortKey('name');
-  }, []);
-
-  const hasActiveFilters =
-    selectedProviderId !== 'all' || searchQuery !== '' || freeOnly || sortKey !== 'name';
-
   const { filtered, getTierForModel, getPriceForModel } = useFilteredModels({
     models: data?.models ?? [],
+    providers: data?.providers ?? [],
     intelligenceByModel,
     selectedProviderId,
     searchQuery: debouncedSearchQuery,
