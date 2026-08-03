@@ -23,6 +23,12 @@ const mockIntelligence: IntelligenceRecord[] = [
 
 const mockIntelligenceByModel = new Map(mockIntelligence.map((r) => [r.model_id, r]));
 
+// Benchmarks use leaderboard ids (suffix of catalog ids): a/model1 -> model1.
+const mockBenchmarks = new Map<ReturnType<typeof modelId>, Map<string, { score: number; rank: number }>>([
+  [modelId('a/model1'), new Map([['code', { score: 90, rank: 1 }]])],
+  [modelId('b/model2'), new Map([['code', { score: 70, rank: 2 }]])],
+]);
+
 describe('useFilteredModels', () => {
   it('filters by provider', () => {
     const { result } = renderHook(() =>
@@ -164,6 +170,62 @@ describe('useFilteredModels', () => {
     expect(result.current.getPriceForModel('b/model2')).toBe(10);
     expect(result.current.getPriceForModel('a/model3')).toBe(1);
     expect(result.current.getPriceForModel('unknown')).toBeUndefined();
+  });
+
+  it('sorts by benchmark ranking descending, unranked last', () => {
+    const { result } = renderHook(() =>
+      useFilteredModels({
+        models: mockModels,
+        providers: mockProviders,
+        intelligenceByModel: mockIntelligenceByModel,
+        benchmarksByModel: mockBenchmarks,
+        selectedProviderId: 'all',
+        searchQuery: '',
+        freeOnly: false,
+        sortKey: 'rank:code',
+      })
+    );
+
+    expect(result.current.filtered[0].model_id).toBe('a/model1'); // score 90
+    expect(result.current.filtered[1].model_id).toBe('b/model2'); // score 70
+    expect(result.current.filtered[2].model_id).toBe('a/model3'); // unranked sinks last
+    expect(result.current.rankBenchmark).toBe('code');
+  });
+
+  it('getBenchmarkScore returns the score and rank for ranked models only', () => {
+    const { result } = renderHook(() =>
+      useFilteredModels({
+        models: mockModels,
+        providers: mockProviders,
+        intelligenceByModel: mockIntelligenceByModel,
+        benchmarksByModel: mockBenchmarks,
+        selectedProviderId: 'all',
+        searchQuery: '',
+        freeOnly: false,
+        sortKey: 'rank:code',
+      })
+    );
+
+    expect(result.current.getBenchmarkScore('a/model1', 'code')).toEqual({ score: 90, rank: 1 });
+    expect(result.current.getBenchmarkScore('a/model3', 'code')).toBeUndefined();
+  });
+
+  it('falls back to name sort when ranking benchmark is missing', () => {
+    const { result } = renderHook(() =>
+      useFilteredModels({
+        models: mockModels,
+        providers: mockProviders,
+        intelligenceByModel: mockIntelligenceByModel,
+        benchmarksByModel: mockBenchmarks,
+        selectedProviderId: 'all',
+        searchQuery: '',
+        freeOnly: false,
+        sortKey: 'rank:reasoning',
+      })
+    );
+
+    expect(result.current.rankBenchmark).toBe('reasoning');
+    expect(result.current.filtered[0].name).toBe('Alpha Model'); // all unranked -> name order
   });
 
   it('sorts by price ascending, unknown last', () => {

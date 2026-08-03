@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { Model } from '../types';
+import type { Model, BenchmarkScore } from '../types';
 import { ModelCard } from './ModelCard';
 import { SkeletonCard } from './SkeletonCard';
 import { IconBox, IconChevronUp } from './icons';
@@ -13,6 +13,9 @@ interface VirtualizedModelListProps {
   models: Model[];
   getTier: (modelId: string) => string;
   getPrice?: (modelId: string) => number | undefined;
+  /** Active ranking benchmark name when sorted by rank (e.g. "code"). */
+  rankBenchmark?: string | null;
+  getBenchmarkScore?: (modelId: string, name: string) => BenchmarkScore | undefined;
   compareSelected?: ReadonlySet<string>;
   /** Disables adding new models once the comparison cap is reached. */
   compareDisabled?: boolean;
@@ -26,6 +29,8 @@ export function VirtualizedModelList({
   models,
   getTier,
   getPrice,
+  rankBenchmark,
+  getBenchmarkScore,
   compareSelected,
   compareDisabled,
   onToggleCompare,
@@ -164,6 +169,10 @@ export function VirtualizedModelList({
                     model={model}
                     tier={getTier(model.model_id)}
                     price={getPrice?.(model.model_id)}
+                    rank={
+                      rankBenchmark ? getBenchmarkScore?.(model.model_id, rankBenchmark) : undefined
+                    }
+                    rankBenchmarkName={rankBenchmark ?? undefined}
                     compareSelected={compareSelected?.has(model.model_id)}
                     compareDisabled={compareDisabled}
                     onToggleCompare={onToggleCompare}

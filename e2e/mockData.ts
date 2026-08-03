@@ -57,6 +57,33 @@ export const mockIntelligence = {
   ],
 };
 
+// Leaderboard ids use the model name suffix (mirror style) so they exercise
+// the same last-segment matching the real dataset relies on.
+export const mockBenchmarks = {
+  benchmarks: [
+    {
+      benchmark_id: 'mirror-code-model-1',
+      model_id: 'model-1',
+      benchmark_name: 'code',
+      score: 92,
+      score_raw: 1550,
+      source: 'mirror',
+      category: ['code'],
+      rank: 1,
+    },
+    {
+      benchmark_id: 'mirror-code-model-2',
+      model_id: 'model-2',
+      benchmark_name: 'code',
+      score: 68,
+      score_raw: 1200,
+      source: 'mirror',
+      category: ['code'],
+      rank: 2,
+    },
+  ],
+};
+
 export function mockDataRoutes(page: Page) {
   for (const base of [API_BASE, CDN_BASE]) {
     page.route(`${base}/models.json`, (route) =>
@@ -67,6 +94,9 @@ export function mockDataRoutes(page: Page) {
     );
     page.route(`${base}/intelligence.json`, (route) =>
       route.fulfill({ json: mockIntelligence })
+    );
+    page.route(`${base}/benchmarks.json`, (route) =>
+      route.fulfill({ json: mockBenchmarks })
     );
   }
 }

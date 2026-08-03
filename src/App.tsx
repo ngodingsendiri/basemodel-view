@@ -7,10 +7,11 @@ import { VirtualizedModelList } from './components/VirtualizedModelList';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ErrorBoundary, ModelListFallback, SidebarFallback, ContentHeaderFallback, ModalFallback } from './components/ErrorBoundary';
 import { IconWarning, IconClose, IconChevronDown, IconBrand, IconTag, IconClipboard, IconCheck, IconSun, IconMoon, IconMonitor, IconPanelLeft, IconPanelLeftClose, IconDownload, IconMenu } from './components/icons';
-import { TIER_CLASS, MODALITY_LABEL } from './components/ui/constants';
+import { TIER_CLASS, MODALITY_LABEL, benchmarkLabel } from './components/ui/constants';
 import { PROVIDER_LINKS } from './config/providers';
 import type { ModelId } from './domain/branded';
 import type { SortKey } from './types/filters';
+import { rankBenchmarkFromKey } from './types/filters';
 
 import { useAlternativesModal } from './hooks/useAlternativesModal';
 import { useCompare } from './hooks/useCompare';
@@ -83,6 +84,8 @@ export default function App() {
     modelsById,
     intelligenceByModel,
     providerCounts,
+    benchmarksByModel,
+    benchmarkSummary,
   } = useExplorerData();
 
   const {
@@ -129,6 +132,29 @@ export default function App() {
     setSidebarMobileOpen(false);
     setProviderQuery('');
   }, [setSelectedProviderId]);
+
+  // Benchmark names present in the dataset — the Ranking sort options are
+  // derived from these, so new benchmarks appear automatically.
+  const benchmarkNames = useMemo(
+    () => new Set(benchmarkSummary.map((b) => b.name)),
+    [benchmarkSummary]
+  );
+
+  // A deep link may reference a benchmark that no longer exists in the data;
+  // fall back to name order instead of rendering a dead sort option.
+  const effectiveSortKey = useMemo<SortKey>(() => {
+    const rankName = rankBenchmarkFromKey(sortKey);
+    return !rankName || benchmarkNames.has(rankName) ? sortKey : 'name';
+  }, [sortKey, benchmarkNames]);
+
+  const getBenchmarkScores = useCallback(
+    (modelId: ModelId) => {
+      const scores = benchmarksByModel.get(modelId);
+      if (!scores || scores.size === 0) return [];
+      return [...scores.entries()].map(([name, s]) => ({ name, score: s.score, rank: s.rank }));
+    },
+    [benchmarksByModel]
+  );
 
   const visibleProviders = useMemo(() => {
     const q = providerQuery.trim().toLowerCase();
@@ -241,14 +267,15 @@ export default function App() {
     open(model, intel?.alternatives ?? []);
   }, [modelsById, intelligenceByModel, open]);
 
-  const { filtered, getTierForModel, getPriceForModel } = useFilteredModels({
+  const { filtered, getTierForModel, getPriceForModel, getBenchmarkScore, rankBenchmark } = useFilteredModels({
     models: data?.models ?? [],
     providers: data?.providers ?? [],
     intelligenceByModel,
+    benchmarksByModel,
     selectedProviderId,
     searchQuery: debouncedSearchQuery,
     freeOnly,
-    sortKey,
+    sortKey: effectiveSortKey,
   });
 
   const compareUrlSeed = useMemo<ModelId[]>(() => {
@@ -604,13 +631,22 @@ export default function App() {
                 <select
                   id="sort-select"
                   className="sort-select"
-                  value={sortKey}
+                  value={effectiveSortKey}
                   onChange={(e) => setSortKey(e.target.value as SortKey)}
                 >
                   <option value="name">Name (A–Z)</option>
                   <option value="context">Context: largest</option>
                   <option value="date">Newest first</option>
                   <option value="price">Price: cheapest</option>
+                  {benchmarkSummary.length > 0 && (
+                    <optgroup label="Ranking">
+                      {benchmarkSummary.map(({ name }) => (
+                        <option key={name} value={`rank:${name}`}>
+                          Ranking: {benchmarkLabel(name)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 <IconChevronDown width={12} height={12} />
               </div>
@@ -661,6 +697,8 @@ export default function App() {
               models={filtered}
               getTier={getTierForModel}
               getPrice={getPriceForModel}
+              rankBenchmark={rankBenchmark}
+              getBenchmarkScore={getBenchmarkScore}
               compareSelected={compare.selected}
               compareDisabled={compare.isFull}
               onToggleCompare={compare.toggle}
@@ -683,6 +721,7 @@ export default function App() {
           providerName={originalModel ? data.providers.find((p) => p.provider_id === originalModel.provider_id)?.name : undefined}
           providerLink={originalModel ? PROVIDER_LINKS.get(originalModel.provider_id) : undefined}
           tier={originalModel ? getTierForModel(originalModel.model_id) : undefined}
+          benchmarks={originalModel ? getBenchmarkScores(originalModel.model_id) : []}
         />
       </ErrorBoundary>
 
@@ -703,6 +742,8 @@ export default function App() {
             providers={data.providers}
             getTier={getTierForModel}
             getPrice={getPriceForModel}
+            getBenchmarkScore={getBenchmarkScore}
+            benchmarkNames={benchmarkSummary.map((b) => b.name)}
             onClose={() => setCompareOpen(false)}
             onRemove={compare.toggle}
           />

@@ -3,7 +3,7 @@ import type { Model, Alternative } from '../schemas/api';
 import { useModal } from '../hooks/useModal';
 import { formatCtx, formatReleaseDate, formatCost, displayModelName } from '../utils/format';
 import { copyText } from '../utils/clipboard';
-import { TIER_CLASS } from './ui/constants';
+import { TIER_CLASS, benchmarkLabel } from './ui/constants';
 import { IconClose, IconExternal } from './icons';
 
 interface AlternativesModalProps {
@@ -19,6 +19,8 @@ interface AlternativesModalProps {
   providerLink?: string;
   /** Pricing tier label for the original model. */
   tier?: string;
+  /** Benchmark scores/ranks available for the original model. */
+  benchmarks?: { name: string; score: number; rank: number }[];
 }
 
 const modalTitleId = 'alternatives-modal-title';
@@ -60,6 +62,7 @@ export function AlternativesModal({
   providerName,
   providerLink,
   tier,
+  benchmarks = [],
 }: AlternativesModalProps) {
   const modalRef = useModal(isOpen && !!originalModel, onClose);
   const [showAll, setShowAll] = useState(false);
@@ -166,6 +169,22 @@ export function AlternativesModal({
               <span className="spec-value spec-value--modalities">
                 {modalities.map((m) => (
                   <span key={m} className="modality-chip">{m.toUpperCase()}</span>
+                ))}
+              </span>
+            </div>
+          )}
+          {benchmarks.length > 0 && (
+            <div className="spec-item spec-item--benchmarks">
+              <span className="spec-label">Rankings</span>
+              <span className="spec-value spec-value--benchmarks">
+                {benchmarks.map((b) => (
+                  <span
+                    key={b.name}
+                    className="bench-chip"
+                    title={`Ranked #${b.rank} on ${benchmarkLabel(b.name)} (score ${b.score})`}
+                  >
+                    {benchmarkLabel(b.name)} #{b.rank} · {b.score}
+                  </span>
                 ))}
               </span>
             </div>

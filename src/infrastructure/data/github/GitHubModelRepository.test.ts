@@ -5,6 +5,9 @@ import { GitHubModelRepository } from './GitHubModelRepository';
 const mockModels = { models: [{ model_id: modelId('test/model'), name: 'Test Model', provider_id: providerId('test'), modality: [] }] };
 const mockProviders = { providers: [{ provider_id: providerId('test'), name: 'Test Provider' }] };
 const mockIntelligence = { intelligence: [{ model_id: modelId('test/model'), cost_tier: 'Free', blended_cost_per_1m: 0, alternatives: [] }] };
+const mockBenchmarks = {
+  benchmarks: [{ benchmark_id: 'mirror-code-test-model', model_id: 'test/model', benchmark_name: 'code', score: 85.5, source: 'mirror' as const, category: ['code'], rank: 3 }],
+};
 
 function createRepository() {
   // Disable rate limiting and retries/backoff so unit tests run instantly.
@@ -38,6 +41,14 @@ describe('GitHubModelRepository', () => {
     await expect(repo.fetchProviders()).resolves.toEqual(mockProviders.providers);
     await expect(repo.fetchIntelligence()).resolves.toEqual(mockIntelligence.intelligence);
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('fetches and validates the benchmarks file', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(okResponse(mockBenchmarks));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const repo = createRepository();
+    await expect(repo.fetchBenchmarks()).resolves.toEqual(mockBenchmarks.benchmarks);
   });
 
   it('fails over to the CDN mirror when the primary source errors', async () => {
@@ -165,6 +176,7 @@ describe('GitHubModelRepository', () => {
     repo.writeCache({
       data: { models: mockModels.models, providers: mockProviders.providers },
       intelligenceRecords: mockIntelligence.intelligence,
+      benchmarkRecords: mockBenchmarks.benchmarks,
       timestamp: Date.now(),
     });
 
@@ -173,6 +185,7 @@ describe('GitHubModelRepository', () => {
     repo.writeCache({
       data: { models: [], providers: [] },
       intelligenceRecords: [],
+      benchmarkRecords: [],
       timestamp: Date.now() - 11 * 60 * 1000,
     });
     expect(repo.getCachedData()).toBeNull();

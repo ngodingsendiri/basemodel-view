@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import type { Model } from '../types';
+import type { Model, BenchmarkScore } from '../types';
 import { formatCtx, formatReleaseDate, formatCost, displayModelName } from '../utils/format';
 import { copyText } from '../utils/clipboard';
-import { TIER_CLASS, MODALITY_LABEL, MAX_COMPARE } from './ui/constants';
+import { TIER_CLASS, MODALITY_LABEL, MAX_COMPARE, benchmarkLabel } from './ui/constants';
 import { IconTag, IconCheck, IconCopy } from './icons';
 
 interface ModelCardProps {
   model: Model;
   tier: string;
   price?: number;
+  /** Score + rank on the active ranking benchmark (when sorting by rank). */
+  rank?: BenchmarkScore;
+  rankBenchmarkName?: string;
   compareSelected?: boolean;
   /** Disables adding new models when the comparison cap is reached. */
   compareDisabled?: boolean;
@@ -46,7 +49,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 const MAX_VISIBLE_MODALITIES = 3;
 
-export function ModelCard({ model, tier, price, compareSelected, compareDisabled, onToggleCompare, onClick }: ModelCardProps) {
+export function ModelCard({ model, tier, price, rank, rankBenchmarkName, compareSelected, compareDisabled, onToggleCompare, onClick }: ModelCardProps) {
   const isFree = tier === 'Free';
   const releaseYear = formatReleaseDate(model.release_date);
   const modalities = model.modality ?? [];
@@ -64,9 +67,17 @@ export function ModelCard({ model, tier, price, compareSelected, compareDisabled
         onClick={handleClick}
         aria-label={`View details for ${displayName}`}
       >
-        {/* Top Line: name + tier badge */}
+        {/* Top Line: name + rank + tier badge */}
         <span className="card-topline">
           <span className="model-name" title={displayName}>{displayName}</span>
+          {rank && rankBenchmarkName && (
+            <span
+              className="rank-chip"
+              title={`Ranked #${rank.rank} on ${benchmarkLabel(rankBenchmarkName)} (score ${rank.score})`}
+            >
+              #{rank.rank} · {rank.score}
+            </span>
+          )}
           <span className={`tier-badge ${TIER_CLASS[tier] ?? 'badge-tier-unknown'}`}>
             {isFree ? (
               <>

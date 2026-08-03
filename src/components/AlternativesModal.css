@@ -135,6 +135,29 @@
   gap: 3px;
 }
 
+.spec-item--benchmarks { grid-column: 1 / -1; }
+.spec-value--benchmarks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bench-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-on-accent);
+  background: var(--accent-strong);
+  border: 1px solid var(--accent-strong);
+  border-radius: var(--radius-xs);
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
 .alt-list { margin-top: 1rem; }
 .alt-list-title {
   font-size: var(--fs-sm);

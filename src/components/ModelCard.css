@@ -82,6 +82,24 @@
   min-width: 0;
 }
 
+/* Rank chip — shown when sorting by a benchmark ranking */
+.rank-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-on-accent);
+  background: var(--accent-strong);
+  border: 1px solid var(--accent-strong);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
 /* Copy button */
 .copy-btn {
   display: inline-flex;

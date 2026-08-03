@@ -1,7 +1,7 @@
-import type { Model, Provider } from '../schemas/api';
+import type { Model, Provider, BenchmarkScore } from '../schemas/api';
 import { useModal } from '../hooks/useModal';
 import { formatCtx, formatReleaseDate, formatCost, displayModelName } from '../utils/format';
-import { MODALITY_LABEL } from './ui/constants';
+import { MODALITY_LABEL, benchmarkLabel } from './ui/constants';
 import { IconClose } from './icons';
 
 const compareTitleId = 'compare-modal-title';
@@ -11,11 +11,22 @@ interface CompareModalProps {
   providers: Provider[];
   getTier: (modelId: string) => string;
   getPrice?: (modelId: string) => number | undefined;
+  getBenchmarkScore?: (modelId: string, name: string) => BenchmarkScore | undefined;
+  benchmarkNames?: string[];
   onClose: () => void;
   onRemove: (modelId: string) => void;
 }
 
-export function CompareModal({ models, providers, getTier, getPrice, onClose, onRemove }: CompareModalProps) {
+export function CompareModal({
+  models,
+  providers,
+  getTier,
+  getPrice,
+  getBenchmarkScore,
+  benchmarkNames = [],
+  onClose,
+  onRemove,
+}: CompareModalProps) {
   const dialogRef = useModal(true, onClose);
   const providerNames = new Map(providers.map((p) => [p.provider_id, p.name]));
 
@@ -74,6 +85,15 @@ export function CompareModal({ models, providers, getTier, getPrice, onClose, on
       label: 'Description',
       render: (m) => m.description ?? '—',
     },
+    ...benchmarkNames.map((name) => ({
+      label: benchmarkLabel(name),
+      render: (m: Model) => {
+        const score = getBenchmarkScore?.(m.model_id, name);
+        return score ? `${score.score} (#${score.rank})` : '—';
+      },
+      best: (m: Model) => getBenchmarkScore?.(m.model_id, name)?.score ?? null,
+      bestMode: 'max' as const,
+    })),
   ];
 
   const bestValueFor = (row: CompareRow): number | null => {

@@ -33,6 +33,32 @@ test('toggles free-only filter', async ({ page }) => {
   await expect(page.getByText('Beta Model Two')).toHaveCount(0);
 });
 
+test('sorts by benchmark ranking and shows rank chips', async ({ page }) => {
+  await page.selectOption('#sort-select', 'rank:code');
+
+  // Alpha scores 92 vs Beta 68 -> Alpha first. (Colon is URL-encoded.)
+  await expect(page).toHaveURL(/sort=rank%3Acode/);
+  const cards = page.locator('.model-card');
+  await expect(cards.first()).toContainText('Test Alpha Model');
+
+  // Rank chips visible while ranking sort is active.
+  await expect(page.locator('.rank-chip').first()).toContainText('#1 · 92');
+
+  // Ranking section appears in the details modal.
+  await page.getByText('Test Alpha Model').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Rankings')).toBeVisible();
+  await expect(dialog.getByText('Code #1 · 92')).toBeVisible();
+});
+
+test('persists ranking sort across reloads via the URL', async ({ page }) => {
+  await page.goto('/?sort=rank%3Acode');
+  await expect(page.getByText('Test Alpha Model')).toBeVisible();
+  await expect(page.locator('.rank-chip').first()).toContainText('#1 · 92');
+  await expect(page.locator('#sort-select')).toHaveValue('rank:code');
+  await expect(page).toHaveURL(/sort=rank%3Acode/);
+});
+
 test('opens the alternatives modal on model click', async ({ page }) => {
   await page.getByText('Test Alpha Model').click();
   const dialog = page.getByRole('dialog');

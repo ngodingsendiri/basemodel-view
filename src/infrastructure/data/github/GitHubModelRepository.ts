@@ -2,11 +2,13 @@ import type {
   Model,
   Provider,
   IntelligenceRecord,
+  Benchmark,
 } from '../../../schemas/api';
 import {
   ModelsResponseSchema,
   ProvidersResponseSchema,
   IntelligenceResponseSchema,
+  BenchmarksResponseSchema,
 } from '../../../schemas/api';
 import type { ModelRepository, CachedData } from '../../../domain/models';
 
@@ -15,7 +17,7 @@ export type { CachedData } from '../../../domain/models';
 export const API_BASE = 'https://raw.githubusercontent.com/ngodingsendiri/BaseModel/main/dist';
 export const CDN_FALLBACK = 'https://cdn.jsdelivr.net/gh/ngodingsendiri/BaseModel@main/dist';
 
-export const CACHE_KEY = 'basemodel:explorer-data:v3';
+export const CACHE_KEY = 'basemodel:explorer-data:v4';
 export const CACHE_TTL = 10 * 60 * 1000;
 
 export const MAX_FAILURES_BEFORE_CIRCUIT_OPEN = 5;
@@ -121,6 +123,13 @@ export class GitHubModelRepository implements ModelRepository {
     const result = IntelligenceResponseSchema.safeParse(data);
     if (!result.success) throw new Error(`Invalid intelligence: ${result.error.message}`);
     return result.data.intelligence;
+  }
+
+  async fetchBenchmarks(): Promise<Benchmark[]> {
+    const data = await this.fetchJson('benchmarks.json');
+    const result = BenchmarksResponseSchema.safeParse(data);
+    if (!result.success) throw new Error(`Invalid benchmarks: ${result.error.message}`);
+    return result.data.benchmarks;
   }
 
   private async fetchJson(filename: string): Promise<unknown> {

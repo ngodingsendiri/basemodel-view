@@ -5,7 +5,7 @@ import { useExplorerData } from './useExplorerData';
 import { ModelRegistryContext, type ModelRegistryContextValue } from '../context/modelRegistry/ModelRegistryContext';
 import { modelId, providerId } from '../domain/branded';
 import type { ModelRepository, ModelService, CachedData } from '../domain/models';
-import type { ExplorerData, IntelligenceRecord } from '../schemas/api';
+import type { ExplorerData, IntelligenceRecord, Benchmark } from '../schemas/api';
 
 const explorerData: ExplorerData = {
   models: [
@@ -22,6 +22,11 @@ const intel: IntelligenceRecord[] = [
   { model_id: modelId('a/model1'), cost_tier: 'Free', blended_cost_per_1m: 0, alternatives: [] },
 ];
 
+const benchmarks: Benchmark[] = [
+  { benchmark_id: 'mirror-code-model1', model_id: 'model1', benchmark_name: 'code', score: 90, source: 'mirror', category: ['code'], rank: 1 },
+  { benchmark_id: 'mirror-code-model2', model_id: 'model2', benchmark_name: 'code', score: 70, source: 'mirror', category: ['code'], rank: 2 },
+];
+
 function createMockContext(overrides: Partial<ModelRegistryContextValue> = {}): ModelRegistryContextValue {
   const repository = {
     getCachedData: vi.fn((): CachedData | null => null),
@@ -32,11 +37,13 @@ function createMockContext(overrides: Partial<ModelRegistryContextValue> = {}): 
     fetchModels: vi.fn(async () => explorerData.models),
     fetchProviders: vi.fn(async () => explorerData.providers),
     fetchIntelligence: vi.fn(async () => intel),
+    fetchBenchmarks: vi.fn(async () => benchmarks),
   } as unknown as ModelRepository;
 
   const service = {
     getExplorerData: vi.fn(async () => explorerData),
     getIntelligenceRecords: vi.fn(async () => intel),
+    getBenchmarkRecords: vi.fn(async () => benchmarks),
   } as ModelService;
 
   return { repository, service, ...overrides };
@@ -63,6 +70,10 @@ describe('useExplorerData', () => {
     expect(result.current.modelsById.get(modelId('a/model1'))?.name).toBe('Alpha Model');
     expect(result.current.intelligenceByModel.get(modelId('a/model1'))?.cost_tier).toBe('Free');
     expect(result.current.providerCounts.get(providerId('a'))).toBe(1);
+    expect(result.current.benchmarkRecords).toEqual(benchmarks);
+    expect(result.current.benchmarksByModel.get(modelId('a/model1'))?.get('code')).toEqual({ score: 90, rank: 1 });
+    expect(result.current.benchmarksByModel.get(modelId('b/model2'))?.get('code')).toEqual({ score: 70, rank: 2 });
+    expect(result.current.benchmarkSummary).toEqual([{ name: 'code', count: 2 }]);
     expect(context.repository.writeCache).toHaveBeenCalled();
   });
 
@@ -70,6 +81,7 @@ describe('useExplorerData', () => {
     const cached: CachedData = {
       data: explorerData,
       intelligenceRecords: intel,
+      benchmarkRecords: benchmarks,
       timestamp: Date.now() - 60 * 60 * 1000,
     };
     const context = createMockContext({
@@ -96,6 +108,7 @@ describe('useExplorerData', () => {
       getIntelligenceRecords: vi.fn(async () => {
         throw new Error('intel down');
       }),
+      getBenchmarkRecords: vi.fn(async () => benchmarks),
     } as ModelService;
     const context = createMockContext({ service });
 
@@ -114,6 +127,9 @@ describe('useExplorerData', () => {
         throw new Error('boom');
       }),
       getIntelligenceRecords: vi.fn(async () => {
+        throw new Error('boom');
+      }),
+      getBenchmarkRecords: vi.fn(async () => {
         throw new Error('boom');
       }),
     } as ModelService;

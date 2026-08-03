@@ -1,12 +1,15 @@
 import { useMemo, useCallback } from 'react';
-import type { Model, Provider, IntelligenceRecord } from '../schemas/api';
+import type { Model, Provider, IntelligenceRecord, BenchmarkScore } from '../schemas/api';
 import type { ModelId } from '../domain/branded';
 import type { SortKey, ProviderFilter } from '../types/filters';
+import { rankBenchmarkFromKey } from '../types/filters';
 
 export interface UseFilteredModelsProps {
   models: Model[];
   providers: Provider[];
   intelligenceByModel: ReadonlyMap<ModelId, IntelligenceRecord>;
+  /** catalog model id -> benchmark name -> { score, rank }. */
+  benchmarksByModel?: ReadonlyMap<ModelId, ReadonlyMap<string, BenchmarkScore>>;
   selectedProviderId: ProviderFilter;
   searchQuery: string;
   freeOnly: boolean;
@@ -17,6 +20,7 @@ export function useFilteredModels({
   models,
   providers,
   intelligenceByModel,
+  benchmarksByModel = new Map(),
   selectedProviderId,
   searchQuery,
   freeOnly,
@@ -48,6 +52,15 @@ export function useFilteredModels({
     [priceMap]
   );
 
+  /** Score for a model on a benchmark, or undefined when unranked. */
+  const getBenchmarkScore = useCallback(
+    (modelId: string, name: string): BenchmarkScore | undefined =>
+      benchmarksByModel.get(modelId as ModelId)?.get(name),
+    [benchmarksByModel]
+  );
+
+  const rankBenchmark = rankBenchmarkFromKey(sortKey);
+
   const filtered = useMemo(() => {
     let result = models;
 
@@ -76,9 +89,18 @@ export function useFilteredModels({
         const pb = priceMap.get(b.model_id) ?? Number.POSITIVE_INFINITY;
         return pa - pb;
       }
+      if (rankBenchmark) {
+        const sa = benchmarksByModel.get(a.model_id)?.get(rankBenchmark)?.score;
+        const sb = benchmarksByModel.get(b.model_id)?.get(rankBenchmark)?.score;
+        // Unranked models sink to the bottom; among ranked, higher score first.
+        if (sa == null && sb == null) return 0;
+        if (sa == null) return 1;
+        if (sb == null) return -1;
+        return sb - sa;
+      }
       return a.name.localeCompare(b.name);
     });
-  }, [models, providers, selectedProviderId, searchQuery, freeOnly, sortKey, getTierForModel, priceMap]);
+  }, [models, providers, selectedProviderId, searchQuery, freeOnly, sortKey, getTierForModel, priceMap, benchmarksByModel, rankBenchmark]);
 
-  return { filtered, getTierForModel, getPriceForModel };
+  return { filtered, getTierForModel, getPriceForModel, getBenchmarkScore, rankBenchmark };
 }

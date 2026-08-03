@@ -1,4 +1,4 @@
-import type { IntelligenceRecord, ExplorerData } from '../../schemas/api';
+import type { IntelligenceRecord, ExplorerData, Benchmark } from '../../schemas/api';
 import type { ModelRepository, ModelService } from '.';
 
 export class ModelServiceImpl implements ModelService {
@@ -22,5 +22,9 @@ export class ModelServiceImpl implements ModelService {
 
   async getIntelligenceRecords(): Promise<IntelligenceRecord[]> {
     return this.repository.fetchIntelligence();
+  }
+
+  async getBenchmarkRecords(): Promise<Benchmark[]> {
+    return this.repository.fetchBenchmarks();
   }
 }

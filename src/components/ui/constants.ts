@@ -16,3 +16,23 @@ export const MODALITY_LABEL: Record<string, string> = {
   video: 'VID',
   embedding: 'EMB',
 };
+
+export const BENCHMARK_LABEL: Record<string, string> = {
+  code: 'Code',
+  text: 'Text',
+  average: 'Overall',
+  bbh: 'BBH Reasoning',
+  gpqa: 'GPQA Reasoning',
+  musr: 'MUSR Reasoning',
+  'math-lvl-5': 'Math',
+  ifeval: 'Instruction Following',
+  'mmlu-pro': 'MMLU-Pro',
+};
+
+/** Human label for a benchmark/ranking name (fallback: Title Case). */
+export function benchmarkLabel(name: string): string {
+  return (
+    BENCHMARK_LABEL[name] ??
+    name.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
