@@ -429,7 +429,7 @@ export default function App() {
           role="navigation"
           aria-label="Model categories"
         >
-          <h2 className="menu-section-title" role="presentation">Overview</h2>
+          <h2 className="menu-section-title">Overview</h2>
           <button
             type="button"
             className={`menu-item ${selectedProviderId === 'all' ? 'active' : ''}`}
@@ -443,7 +443,7 @@ export default function App() {
             <span className="menu-badge" aria-hidden="true">{data.models.length}</span>
           </button>
 
-          <h2 className="menu-section-title sidebar-section-title" role="presentation">
+          <h2 className="menu-section-title sidebar-section-title">
             Providers <span className="provider-count" aria-hidden="true">{visibleProviders.length}</span>
           </h2>
           <input
