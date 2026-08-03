@@ -3,7 +3,6 @@ import type { Model } from '../types';
 import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
 import { TIER_CLASS, MODALITY_LABEL } from './ui/constants';
 import { IconTag, IconCheck } from './icons';
-import { sanitizeModelName, sanitizeModelId, sanitizeText } from '../utils/sanitize';
 
 interface ModelCardProps {
   model: Model;
@@ -85,25 +84,25 @@ export function ModelCard({ model, tier, price, compareSelected, onToggleCompare
         type="button"
         className="model-card-hitarea"
         onClick={handleClick}
-        aria-label={`View details for ${sanitizeModelName(model.name)}`}
+        aria-label={`View details for ${model.name}`}
       >
         {/* Top Line: name + tier badge */}
         <span className="card-topline">
-          <span className="model-name" title={sanitizeModelName(model.name)}>{sanitizeModelName(model.name)}</span>
+          <span className="model-name" title={model.name}>{model.name}</span>
           <span className={`tier-badge ${TIER_CLASS[tier] ?? 'badge-tier-unknown'}`}>
             {isFree ? (
               <>
                 <IconTag width={10} height={10} /> Free
               </>
             ) : (
-              sanitizeText(tier)
+              tier
             )}
           </span>
         </span>
 
         {/* Id Line: model id */}
         <span className="card-idline">
-          <span className="model-id" title={sanitizeModelId(model.model_id)}>{sanitizeModelId(model.model_id)}</span>
+          <span className="model-id" title={model.model_id}>{model.model_id}</span>
         </span>
 
         {/* Meta Line: stats + modality pills */}
@@ -153,7 +152,7 @@ export function ModelCard({ model, tier, price, compareSelected, onToggleCompare
           className="compare-toggle"
           onClick={() => onToggleCompare(model.model_id)}
           aria-pressed={compareSelected ?? false}
-          aria-label={compareSelected ? `Remove ${sanitizeModelName(model.name)} from comparison` : `Add ${sanitizeModelName(model.name)} to comparison`}
+          aria-label={compareSelected ? `Remove ${model.name} from comparison` : `Add ${model.name} to comparison`}
           title={compareSelected ? 'Remove from comparison' : 'Add to comparison'}
         >
           <IconCheck width={12} height={12} />

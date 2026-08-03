@@ -6,12 +6,12 @@ import { CompareModal } from './components/CompareModal';
 import { VirtualizedModelList } from './components/VirtualizedModelList';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ErrorBoundary, ModelListFallback, SidebarFallback, ContentHeaderFallback, ModalFallback } from './components/ErrorBoundary';
-import { IconWarning, IconClose, IconChevronDown, IconBrand, IconTag, IconClipboard, IconCheck, IconSun, IconMoon, IconMonitor, IconPanelLeft, IconPanelLeftClose, IconDownload } from './components/icons';
+import { IconWarning, IconClose, IconChevronDown, IconBrand, IconTag, IconClipboard, IconCheck, IconSun, IconMoon, IconMonitor, IconPanelLeft, IconPanelLeftClose, IconDownload, IconMenu } from './components/icons';
 import { TIER_CLASS, MODALITY_LABEL } from './components/ui/constants';
 import { PROVIDER_LINKS } from './config/providers';
 import type { ModelId } from './domain/branded';
 import type { SortKey } from './types/filters';
-import { sanitizeProviderName, sanitizeError } from './utils/sanitize';
+
 import { useAlternativesModal } from './hooks/useAlternativesModal';
 import { useCompare } from './hooks/useCompare';
 import { useExplorerData } from './hooks/useExplorerData';
@@ -80,6 +80,9 @@ export default function App() {
   } = useFilters();
 
   const [compareOpen, setCompareOpen] = useState(false);
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
+  const sidebarMobileRef = useRef<HTMLElement | null>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement | null>(null);
 
   const { mode, effectiveTheme, cycle } = useTheme();
 
@@ -93,6 +96,41 @@ export default function App() {
       return next;
     });
   }, []);
+
+  const toggleSidebarMobile = useCallback(() => {
+    setSidebarMobileOpen((prev) => !prev);
+  }, []);
+
+  // Close the mobile sidebar drawer on Escape, returning focus to the toggle.
+  useEffect(() => {
+    if (!sidebarMobileOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSidebarMobileOpen(false);
+        sidebarToggleRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [sidebarMobileOpen]);
+
+  // Move focus into the drawer when it opens (a11y).
+  useEffect(() => {
+    if (!sidebarMobileOpen) return;
+    sidebarMobileRef.current?.querySelector<HTMLElement>('.menu-item')?.focus();
+  }, [sidebarMobileOpen]);
+
+  // Auto-close the drawer when the viewport grows past the mobile breakpoint,
+  // otherwise a fixed backdrop would keep blocking the UI on desktop.
+  useEffect(() => {
+    if (!sidebarMobileOpen) return;
+    const mq = window.matchMedia('(min-width: 769px)');
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setSidebarMobileOpen(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [sidebarMobileOpen]);
 
   const { isOpen, originalModel, selectedAlternatives, open, close } = useAlternativesModal();
 
@@ -238,39 +276,6 @@ export default function App() {
     URL.revokeObjectURL(url);
   }, [data?.providers, filtered, getTierForModel, getPriceForModel]);
 
-  // Arrow-key navigation between sidebar tabs (roving tabindex pattern).
-  const handleTabListKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
-    if (tabs.length === 0) return;
-    const currentIndex = tabs.indexOf(document.activeElement as HTMLButtonElement);
-    if (currentIndex === -1) return;
-
-    let nextIndex = currentIndex;
-    switch (e.key) {
-      case 'ArrowDown':
-      case 'ArrowRight':
-        nextIndex = (currentIndex + 1) % tabs.length;
-        break;
-      case 'ArrowUp':
-      case 'ArrowLeft':
-        nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-        break;
-      case 'Home':
-        nextIndex = 0;
-        break;
-      case 'End':
-        nextIndex = tabs.length - 1;
-        break;
-      default:
-        return;
-    }
-
-    e.preventDefault();
-    const nextTab = tabs[nextIndex];
-    nextTab.focus();
-    nextTab.click();
-  };
-
   // --- Loading skeleton (only when nothing to render yet) ---
   if (loading && !data) {
     return (
@@ -309,7 +314,7 @@ export default function App() {
       <div className="dashboard-layout error-state">
         <div className="error-icon"><IconWarning width={32} height={32} /></div>
         <div className="error-title">Failed to load data</div>
-        <div className="error-message">{sanitizeError(error || 'Unknown error. The GitHub API may be unreachable.')}</div>
+        <div className="error-message">{error || 'Unknown error. The GitHub API may be unreachable.'}</div>
         <button type="button" className="retry-btn" onClick={retry}>↻ Retry</button>
       </div>
     );
@@ -329,9 +334,20 @@ export default function App() {
         Skip to content
       </a>
 
+      {sidebarMobileOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => {
+            setSidebarMobileOpen(false);
+            sidebarToggleRef.current?.focus();
+          }}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
       <ErrorBoundary fallback={<SidebarFallback onRetry={retry} />} resetKey={retryCount}>
-        <aside className={`sidebar${sidebarCollapsed ? ' sidebar--collapsed' : ''}`}>
+        <aside ref={sidebarMobileRef} className={`sidebar${sidebarCollapsed ? ' sidebar--collapsed' : ''}${sidebarMobileOpen ? ' sidebar--mobile-open' : ''}`}>
         <div className="sidebar-header">
           <h1 className="brand">
             <IconBrand className="brand-icon" width={22} height={22} />
@@ -355,20 +371,15 @@ export default function App() {
 
         <div
           className="sidebar-menu"
-          role="tablist"
+          role="navigation"
           aria-label="Model categories"
-          onKeyDown={handleTabListKeyDown}
         >
           <h2 className="menu-section-title" role="presentation">Overview</h2>
           <button
             type="button"
             className={`menu-item ${selectedProviderId === 'all' ? 'active' : ''}`}
             onClick={() => setSelectedProviderId('all')}
-            role="tab"
-            aria-selected={selectedProviderId === 'all'}
-            aria-controls="models-panel"
-            id="tab-all"
-            tabIndex={selectedProviderId === 'all' ? 0 : -1}
+            aria-current={selectedProviderId === 'all' ? 'page' : undefined}
           >
             <span className="menu-avatar" aria-hidden="true">AL</span>
             <span className="menu-label">All Providers</span>
@@ -388,16 +399,12 @@ export default function App() {
                     type="button"
                     className={`menu-item ${selectedProviderId === provider.provider_id ? 'active' : ''}`}
                     onClick={() => setSelectedProviderId(provider.provider_id)}
-                    role="tab"
-                    aria-selected={selectedProviderId === provider.provider_id}
-                    aria-controls="models-panel"
-                    id={`tab-${provider.provider_id}`}
-                    tabIndex={selectedProviderId === provider.provider_id ? 0 : -1}
+                    aria-current={selectedProviderId === provider.provider_id ? 'page' : undefined}
                   >
                     <span className="menu-avatar" aria-hidden="true">
-                      {sanitizeProviderName(provider.name).replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '?'}
+                      {provider.name.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '?'}
                     </span>
-                    <span className="menu-label">{sanitizeProviderName(provider.name)}</span>
+                    <span className="menu-label">{provider.name}</span>
                     <span className="menu-badge">{modelCount}</span>
                   </button>
                   {link && (
@@ -406,7 +413,7 @@ export default function App() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="api-key-link"
-                      aria-label={`Get API key for ${sanitizeProviderName(provider.name)}`}
+                      aria-label={`Get API key for ${provider.name}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.071 4.929c-3.905-3.905-10.237-3.905-14.142 0"/><path d="M4.929 19.071c3.905 3.905 10.237 3.905 14.142 0"/><path d="M19.071 19.071c3.905-3.905 3.905-10.237 0-14.142"/><path d="M4.929 4.929C1.024 8.834 1.024 15.166 4.929 19.071"/></svg>
@@ -476,6 +483,17 @@ export default function App() {
               )}
             </div>
             <div className="header-controls">
+              <button
+                type="button"
+                ref={sidebarToggleRef}
+                className="icon-btn sidebar-mobile-toggle"
+                aria-expanded={sidebarMobileOpen}
+                onClick={toggleSidebarMobile}
+                aria-label={sidebarMobileOpen ? 'Close sidebar' : 'Open sidebar'}
+                data-tooltip={sidebarMobileOpen ? 'Close sidebar' : 'Open sidebar'}
+              >
+                <IconMenu width={15} height={15} />
+              </button>
               <label className="free-toggle" title="Show free models only">
                 <input
                   type="checkbox"

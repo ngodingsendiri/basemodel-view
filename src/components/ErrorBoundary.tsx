@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { reportError } from '../utils/errorReporting';
-import { IconClipboard, IconWarning, IconWrench } from './icons';
+import { IconClipboard, IconWarning, IconWrench, IconClose, IconBrand } from './icons';
 
 interface Props {
   children: ReactNode;
@@ -99,7 +99,7 @@ export function SidebarFallback({ onRetry }: { onRetry?: () => void }) {
     <aside className="sidebar sidebar--error">
       <div className="sidebar-header">
         <div className="brand">
-          <span className="brand-icon">⬡</span>
+          <IconBrand className="brand-icon" width={22} height={22} />
           <div>
             <div className="brand-name">BaseModel</div>
             <div className="brand-sub">Explorer</div>
@@ -149,7 +149,7 @@ export function ModalFallback({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           aria-label="Close error modal"
         >
-          ✕
+          <IconClose width={14} height={14} />
         </button>
         <div className="modal-header">
           <h2 className="modal-title">Error</h2>

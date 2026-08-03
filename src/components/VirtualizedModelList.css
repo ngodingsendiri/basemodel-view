@@ -64,3 +64,9 @@
   background: var(--bg-hover);
   border-color: var(--border-hover);
 }
+
+.empty-state-action:active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}

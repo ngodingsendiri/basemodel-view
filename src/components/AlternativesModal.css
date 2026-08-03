@@ -7,22 +7,28 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: var(--z-modal);
   padding: 24px;
 }
 
 .modal-content {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 28px;
+  border-radius: var(--radius-lg);
+  padding: 24px;
   max-width: 480px;
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
   overscroll-behavior: contain;
   width: 100%;
   position: relative;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-modal);
+  animation: modal-enter 0.15s ease-out;
+}
+
+@keyframes modal-enter {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .close-button {
@@ -44,6 +50,8 @@
 }
 
 .close-button:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.close-button:active { background: var(--accent-glow); color: var(--accent); }
 
 .badge-modality {
   font-size: var(--fs-xs);
@@ -155,6 +163,12 @@
   background: var(--accent-glow);
 }
 
+.alt-show-more:active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
 /* Price display */
 .alt-item:hover {
   border-color: var(--border-hover);
@@ -173,7 +187,7 @@
 }
 
 .badge-modality--price {
-  color: var(--accent);
-  border-color: rgba(59,130,246,0.3);
-  background: rgba(59,130,246,0.08);
+  color: var(--text-on-accent);
+  background: #1e3a8a;
+  border-color: #1e3a8a;
 }

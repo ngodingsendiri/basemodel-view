@@ -3,7 +3,6 @@ import { useModal } from '../hooks/useModal';
 import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
 import { MODALITY_LABEL } from './ui/constants';
 import { IconClose } from './icons';
-import { sanitizeModelName, sanitizeModelId } from '../utils/sanitize';
 
 const compareTitleId = 'compare-modal-title';
 
@@ -114,13 +113,13 @@ export function CompareModal({ models, providers, getTier, getPrice, onClose, on
                 {models.map((m) => (
                   <th key={m.model_id} scope="col">
                     <div className="compare-th">
-                      <div className="compare-th-name">{sanitizeModelName(m.name)}</div>
-                      <div className="compare-th-id">{sanitizeModelId(m.model_id)}</div>
+                      <div className="compare-th-name">{m.name}</div>
+                      <div className="compare-th-id">{m.model_id}</div>
                       <button
                         type="button"
                         className="compare-th-remove"
                         onClick={() => onRemove(m.model_id)}
-                        aria-label={`Remove ${sanitizeModelName(m.name)} from comparison`}
+                        aria-label={`Remove ${m.name} from comparison`}
                       >
                         <IconClose width={11} height={11} /> Remove
                       </button>

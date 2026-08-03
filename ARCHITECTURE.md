@@ -182,22 +182,20 @@ The `IntelligenceRecordSchema` includes a refinement that rejects self-referenti
 )
 ```
 
-## Sanitization
+## Text Rendering Safety
 
-All dynamic text rendered in the DOM goes through `src/utils/sanitize.ts`:
-
-- `sanitizeText()` — escapes `&`, `<`, `>`, `"`, `'`
-- Applied to: model names, model IDs, provider names, alternative reasons, error messages
+React's JSX escaping is the single defense for dynamic text: any value rendered as
+text content or an attribute is escaped automatically, so no manual sanitizer layer
+is needed. A previous `src/utils/sanitize.ts` layer was removed because it
+double-escaped legitimate data (e.g. `AT&T` rendered literally as `AT&amp;T`).
 
 ## Keyboard Navigation
 
-### Provider Sidebar (Roving Tabindex)
+### Provider Sidebar
 
-- Arrow Down/Right: move to next tab, auto-select
-- Arrow Up/Left: move to previous tab, auto-select
-- Home: move to first tab
-- End: move to last tab
-- Only the active tab has `tabIndex={0}`; all others have `tabIndex={-1}`
+- The sidebar is a `role="navigation"` landmark containing plain buttons (not a tablist)
+- The active provider is marked with `aria-current="page"`
+- Each provider row includes an API-key link (`rel="noopener noreferrer"`)
 
 ### Modal
 

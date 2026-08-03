@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Model, Alternative } from '../schemas/api';
 import { useModal } from '../hooks/useModal';
-import { sanitizeModelName, sanitizeModelId, sanitizeReason } from '../utils/sanitize';
 import { formatCost } from '../utils/format';
 import { IconClose } from './icons';
 
@@ -97,10 +96,10 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
 
         <div className="modal-header">
           <h2 id={modalTitleId} className="modal-title">
-            {sanitizeModelName(originalModel.name)}
+            {originalModel.name}
           </h2>
           <div className="modal-model-id">
-            <code>{sanitizeModelId(originalModel.model_id)}</code>
+            <code>{originalModel.model_id}</code>
             <CopyIDBtn id={originalModel.model_id} />
           </div>
         </div>
@@ -141,14 +140,14 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
                 const altPrice = getPrice?.(alt.model_id);
                 const info = (
                   <div className="alt-item-info">
-                    <div className="alt-item-name">{sanitizeModelName(alt.name)}</div>
+                    <div className="alt-item-name">{alt.name}</div>
                     <div className="alt-item-meta">
-                      <span className="alt-item-id">{sanitizeModelId(alt.model_id)}</span>
+                      <span className="alt-item-id">{alt.model_id}</span>
                       {altPrice !== undefined && altPrice > 0 && (
                         <span className="alt-item-price">{formatCost(altPrice)} /1M</span>
                       )}
                     </div>
-                    <div className="alt-item-reason">{sanitizeReason(alt.reason)}</div>
+                    <div className="alt-item-reason">{alt.reason}</div>
                   </div>
                 );
                 return (
@@ -158,7 +157,7 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
                         type="button"
                         className="alt-item-nav"
                         onClick={() => onSelectAlternative(alt.model_id)}
-                        aria-label={`View details for ${sanitizeModelName(alt.name)}`}
+                        aria-label={`View details for ${alt.name}`}
                       >
                         {info}
                       </button>

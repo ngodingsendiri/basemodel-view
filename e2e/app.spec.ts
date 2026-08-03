@@ -10,13 +10,13 @@ test.beforeEach(async ({ page }) => {
 
 test('renders the sidebar and model list', async ({ page }) => {
   await expect(page.locator('.brand-name')).toHaveText('BaseModel');
-  await expect(page.getByRole('tab', { name: /All Providers/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /All Providers/ })).toBeVisible();
   await expect(page.getByText('Test Alpha Model')).toBeVisible();
   await expect(page.getByText('Beta Model Two')).toBeVisible();
 });
 
 test('filters models by provider from the sidebar', async ({ page }) => {
-  await page.getByRole('tab', { name: /Test Company/ }).click();
+  await page.getByRole('button', { name: /Test Company/ }).click();
   await expect(page.getByText('Test Alpha Model')).toBeVisible();
   await expect(page.getByText('Beta Model Two')).toHaveCount(0);
 });
@@ -58,21 +58,6 @@ test('clears all filters with the clear filters button', async ({ page }) => {
   await page.getByRole('button', { name: /Clear filters/ }).click();
   await expect(page.getByText('Test Alpha Model')).toBeVisible();
   await expect(page.getByText('Beta Model Two')).toBeVisible();
-});
-
-test('navigates provider tabs with arrow keys', async ({ page }) => {
-  const allTab = page.getByRole('tab', { name: /All Providers/ });
-  await allTab.focus();
-  await expect(allTab).toBeFocused();
-
-  await page.keyboard.press('ArrowDown');
-  await expect(page.getByRole('tab', { name: /Test Company/ })).toBeFocused();
-
-  await page.keyboard.press('ArrowDown');
-  await expect(page.getByRole('tab', { name: /Other Company/ })).toBeFocused();
-
-  await page.keyboard.press('Home');
-  await expect(allTab).toBeFocused();
 });
 
 test('displays price per 1M tokens on paid models', async ({ page }) => {

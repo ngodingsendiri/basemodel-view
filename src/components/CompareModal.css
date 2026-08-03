@@ -1,5 +1,6 @@
-/* Compare modal */
-.compare-modal { max-width: 720px; }
+/* Compare modal. The `modal-enter` keyframes are defined once in
+   AlternativesModal.css (shared by both modals). */
+.compare-modal { max-width: 720px; animation: modal-enter 0.15s ease-out; }
 
 .compare-table-wrap { overflow-x: auto; }
 
@@ -43,7 +44,7 @@
 
 .compare-th-id {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   margin-top: 2px;
   overflow: hidden;
@@ -71,4 +72,10 @@
 .compare-th-remove:hover {
   color: var(--text-primary);
   border-color: var(--border-hover);
+}
+
+.compare-th-remove:active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
 }

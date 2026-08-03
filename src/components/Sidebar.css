@@ -7,6 +7,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width 0.2s ease;
 }
 
 .sidebar-header {
@@ -91,9 +92,9 @@
   gap: 6px;
   padding: 7px 10px;
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: var(--bg-sidebar);
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: var(--fs-sm);
   font-weight: 500;
   text-align: left;
@@ -187,14 +188,18 @@
 }
 
 .menu-badge {
-  background: var(--badge-bg);
-  color: var(--text-secondary);
-  font-size: 0.68rem;
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-size: var(--fs-xs);
   padding: 1px 5px;
-  border-radius: 99px;
+  border-radius: var(--radius-full);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-soft);
 }
 
 .menu-item.active .menu-badge {
@@ -229,12 +234,13 @@
 }
 
 .sidebar-legend {
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: var(--bg-panel);
 }
 
 .legend-title {
@@ -254,7 +260,7 @@
 
 .legend-label {
   font-size: var(--fs-xs);
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .legend-items {
@@ -268,26 +274,29 @@
   align-items: center;
   gap: 4px;
   font-size: var(--fs-xs);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   line-height: 1.2;
 }
 
 .legend-swatch {
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   display: inline-block;
 }
 
-.legend-swatch.badge-tier-free { background: var(--green); }
-.legend-swatch.badge-tier-budget { background: var(--accent); }
-.legend-swatch.badge-tier-balanced { background: var(--purple); }
-.legend-swatch.badge-tier-premium { background: var(--yellow); }
+.legend-swatch.badge-tier-free { background: #047857; }
+.legend-swatch.badge-tier-budget { background: #1e3a8a; }
+.legend-swatch.badge-tier-balanced { background: #6d28d9; }
+.legend-swatch.badge-tier-premium { background: #92400e; }
 
 .sidebar-legend .modality-chip {
   font-size: var(--fs-xs);
-  padding: 1px 3px;
-  border-radius: 3px;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .legend-modality-name {

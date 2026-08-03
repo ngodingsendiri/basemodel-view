@@ -12,8 +12,8 @@ A single-page application for browsing, filtering, and comparing AI language mod
 ### Installation
 
 ```bash
-git clone https://github.com/ngodingsendiri/BaseModel.git
-cd BaseModel
+git clone https://github.com/ngodingsendiri/basemodel-view.git
+cd basemodel-view
 npm install
 ```
 
@@ -126,8 +126,7 @@ src/
 │
 ├── utils/
 │   ├── errorReporting.ts            # reportError() integration point (Sentry/LogRocket-ready)
-│   ├── format.ts                    # formatCtx(), formatReleaseDate()
-│   └── sanitize.ts                  # HTML entity escaping for all dynamic text content
+│   └── format.ts                    # formatCtx(), formatReleaseDate()
 │
 └── test/
     └── setup.ts                     # Vitest setup: jest-dom, clipboard mock, cleanup
@@ -174,15 +173,15 @@ src/
 
 ### Accessibility
 
-- **Roving tabindex** on provider sidebar tabs (Arrow keys, Home/End navigate and auto-select)
-- **ARIA attributes**: `role="tablist"`, `role="tab"`, `aria-selected`, `aria-controls`, `role="dialog"`, `aria-modal`, `aria-label` on all interactive elements
+- **Provider sidebar navigation**: plain buttons inside a `role="navigation"` landmark; the active provider is marked with `aria-current="page"`
+- **ARIA attributes**: `role="navigation"`, `aria-current`, `role="dialog"`, `aria-modal`, `aria-expanded` (mobile drawer), `aria-label` on all interactive elements
 - **Focus-visible** outlines on all interactive elements
 - **Screen reader support**: hidden labels, live region for filter count, copy button announcements
 
 ### Security
 
 - **Content Security Policy** in `index.html`: `script-src 'self'`, `style-src 'self' 'unsafe-inline'`, `object-src 'none'`
-- **Input sanitization**: all dynamic text (model names, IDs, provider names, error messages, reasons) escaped via `src/utils/sanitize.ts`
+- **Text safety**: React's JSX escaping handles all dynamic text and attributes — no manual HTML-entity sanitizer is used (a previous `sanitize.ts` layer was removed because it double-escaped legitimate data)
 - **Dev server filesystem**: restricted to `.` only (no parent directory traversal)
 - **No `wasm-unsafe-eval`** in CSP
 
@@ -207,7 +206,7 @@ src/
 
 ### Provider Integration
 
-- **API key links** in sidebar footer for 18 providers (OpenAI, Anthropic, Google, etc.)
+- **API key links** in sidebar footer for 20 providers (OpenAI, Anthropic, Google, etc.)
 - Typed as `ReadonlyMap<ProviderId, string>` in `src/config/providers.ts`
 
 ## Configuration
@@ -230,7 +229,7 @@ src/
 
 - React plugin (`@vitejs/plugin-react`)
 - Manual chunk splitting: `vendor-react`, `vendor-virtual`, `vendor-zod`, `vendor`, `modal`
-- `chunkSizeWarningLimit: 200` (the vendor-react chunk is ~215 KB gzipped to ~69 KB — acceptable for React runtime)
+- `chunkSizeWarningLimit: 250` (the vendor-react chunk is ~219 KB gzipped to ~70 KB — acceptable for React runtime)
 
 ### Testing
 
@@ -244,7 +243,8 @@ All workflows are in `.github/workflows/`:
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | push/PR to main | lint → typecheck → test → build → e2e → security audit → dependency review |
+| `ci.yml` | push/PR to main | lint → typecheck → test → build → e2e → `npm audit` security scan |
+| `dependency-review.yml` | PR to main | Fail on high-severity dependency vulnerabilities |
 | `deploy.yml` | push to main | Build + deploy to `gh-pages` branch |
 | `preview.yml` | PR open/sync/close | Deploy PR preview to `gh-pages/pr-preview/` |
 | `codeql.yml` | push/PR + weekly | CodeQL security analysis |

@@ -4,15 +4,15 @@
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 90;
+  z-index: var(--z-bar);
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px -8px rgba(0,0,0,0.6);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
 }
 
 .compare-bar-count {
@@ -34,6 +34,7 @@
 }
 
 .compare-bar-btn:hover:not(:disabled) { background: var(--accent); }
+.compare-bar-btn:active:not(:disabled) { background: var(--accent-strong); transform: scale(0.98); }
 .compare-bar-btn:disabled { opacity: 0.45; cursor: default; }
 
 .compare-bar-clear {
@@ -48,3 +49,4 @@
 }
 
 .compare-bar-clear:hover { color: var(--text-primary); }
+.compare-bar-clear:active { color: var(--accent); }

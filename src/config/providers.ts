@@ -18,7 +18,7 @@ export const PROVIDER_LINKS: ReadonlyMap<ProviderId, string> = new Map([
   [providerId('litellm'), 'https://litellm.ai/'],
   [providerId('portkey'), 'https://app.portkey.ai/'],
   [providerId('helicone'), 'https://www.helicone.ai/'],
-  [providerId('cloudflare'), 'https://dash.cloudflare.com/?to=/:account/ai/workers-ai'],
+  [providerId('cloudflare'), 'https://dash.cloudflare.com/'],
   [providerId('requesty'), 'https://requesty.ai/'],
   [providerId('datalab'), 'https://datalab.to/'],
   [providerId('bifrost'), 'https://getbifrost.com/'],

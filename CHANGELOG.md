@@ -4,6 +4,16 @@ All notable changes to BaseModel Explorer are documented here.
 
 ## [Unreleased] — 2026-08-03
 
+### Audit remediation (2026-08-03)
+
+- **E2E parity restored**: sidebar tests updated from `getByRole('tab')` to `getByRole('button')` after the tablist → `role="navigation"` refactor; the obsolete "arrow-key tab navigation" test was removed (the feature no longer exists)
+- **Sanitizer layer removed**: `src/utils/sanitize.ts` deleted — React's JSX escaping already covers text and attributes, and the manual HTML-entity layer double-escaped legitimate data (`AT&T` rendered literally as `AT&amp;T`)
+- **Mobile sidebar drawer accessibility**: Escape-to-close, clickable backdrop, `aria-expanded` + dynamic `aria-label` on the toggle, and `visibility: hidden` while closed so Tab cannot reach the off-screen drawer; a persisted `sidebar--collapsed` state no longer breaks the drawer on small screens
+- **Broken Cloudflare API-key link fixed** (placeholder `:account` segment removed)
+- **Dedup**: focus restore now lives solely in `useFocusTrap` (removed the duplicate in `useModal`), identical branches collapsed in `reportError`, duplicated `modal-enter` keyframes removed from `CompareModal.css`, text glyphs (`✕`/`⬡`) in error fallbacks replaced with SVG icons
+- **CI made honest**: `ci.yml` now runs `npm audit --audit-level=high`; the previously documented-but-missing `dependency-review.yml` workflow was added; README/ARCHITECTURE updated to match reality (roving-tabindex claims, provider count 18→20, wrong clone URL, test counts)
+- **Dependency hygiene**: `pnpm-lock.yaml` removed (repo uses npm); a fresh `npm ci` verifies the install is reproducible
+
 ### Refactor & Architecture
 
 - **`useExplorerData` hook**: extracted data loading (SWR cache seeding, background revalidate, retry, graceful degradation, lookup maps) out of `App.tsx`
@@ -67,7 +77,7 @@ All notable changes to BaseModel Explorer are documented here.
 ### Testing
 
 - **62 unit tests** (+12: `useTheme` ×7, `useModal` ×5, incl. focus trap restore/wrap)
-- **26 E2E tests** (+11: theme cycling + persistence, sidebar collapse + persistence, CSV export content, skip-link focus, `/` shortcut, copy-link clipboard, last-updated indicator, and 4 axe a11y checks)
+- **25 E2E tests** (+10: theme cycling + persistence, sidebar collapse + persistence, CSV export content, skip-link focus, `/` shortcut, copy-link clipboard, last-updated indicator, and 4 axe a11y checks)
 
 ## [1.1.0] — 2026-08-01
 
