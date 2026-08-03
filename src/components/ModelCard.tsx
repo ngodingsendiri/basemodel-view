@@ -1,49 +1,30 @@
 import { useState } from 'react';
 import type { Model } from '../types';
 import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
-import { TIER_CLASS, MODALITY_LABEL } from './ui/constants';
-import { IconTag, IconCheck } from './icons';
+import { copyText } from '../utils/clipboard';
+import { TIER_CLASS, MODALITY_LABEL, MAX_COMPARE } from './ui/constants';
+import { IconTag, IconCheck, IconCopy } from './icons';
 
 interface ModelCardProps {
   model: Model;
   tier: string;
   price?: number;
   compareSelected?: boolean;
+  /** Disables adding new models when the comparison cap is reached. */
+  compareDisabled?: boolean;
   onToggleCompare?: (modelId: string) => void;
   onClick: (modelId: string) => void;
-}
-
-function fallbackCopy(text: string): boolean {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    return document.execCommand('copy');
-  } catch {
-    return false;
-  } finally {
-    document.body.removeChild(textarea);
-  }
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    navigator.clipboard.writeText(text).then(
-      () => {
+    copyText(text).then((ok) => {
+      if (ok) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
-      },
-      () => {
-        if (fallbackCopy(text)) {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        }
       }
-    );
+    });
   };
   return (
     <>
@@ -54,11 +35,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         title={copied ? 'Copied' : `Copy ${label}`}
         aria-label={copied ? 'Copied' : `Copy ${label}`}
       >
-        {copied ? (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
-        ) : (
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-        )}
+        {copied ? <IconCheck width={11} height={11} /> : <IconCopy width={11} height={11} />}
       </button>
       <span role="status" className="visually-hidden" aria-live="polite">
         {copied ? `Copied ${label}` : ''}
@@ -69,7 +46,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 const MAX_VISIBLE_MODALITIES = 3;
 
-export function ModelCard({ model, tier, price, compareSelected, onToggleCompare, onClick }: ModelCardProps) {
+export function ModelCard({ model, tier, price, compareSelected, compareDisabled, onToggleCompare, onClick }: ModelCardProps) {
   const isFree = tier === 'Free';
   const releaseYear = formatReleaseDate(model.release_date);
   const modalities = model.modality ?? [];
@@ -151,9 +128,22 @@ export function ModelCard({ model, tier, price, compareSelected, onToggleCompare
           type="button"
           className="compare-toggle"
           onClick={() => onToggleCompare(model.model_id)}
+          disabled={compareDisabled && !compareSelected}
           aria-pressed={compareSelected ?? false}
-          aria-label={compareSelected ? `Remove ${model.name} from comparison` : `Add ${model.name} to comparison`}
-          title={compareSelected ? 'Remove from comparison' : 'Add to comparison'}
+          aria-label={
+            compareSelected
+              ? `Remove ${model.name} from comparison`
+              : compareDisabled
+                ? `Comparison limit reached (max ${MAX_COMPARE})`
+                : `Add ${model.name} to comparison`
+          }
+          title={
+            compareSelected
+              ? 'Remove from comparison'
+              : compareDisabled
+                ? `Comparison limit reached (max ${MAX_COMPARE})`
+                : 'Add to comparison'
+          }
         >
           <IconCheck width={12} height={12} />
         </button>

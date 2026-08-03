@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { Model, Alternative } from '../schemas/api';
 import { useModal } from '../hooks/useModal';
-import { formatCost } from '../utils/format';
-import { IconClose } from './icons';
+import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
+import { copyText } from '../utils/clipboard';
+import { TIER_CLASS } from './ui/constants';
+import { IconClose, IconExternal } from './icons';
 
 interface AlternativesModalProps {
   isOpen: boolean;
@@ -11,6 +13,12 @@ interface AlternativesModalProps {
   alternatives: Alternative[];
   onSelectAlternative?: (modelId: string) => void;
   getPrice?: (modelId: string) => number | undefined;
+  /** Display name of the owning provider (from the providers dataset). */
+  providerName?: string;
+  /** Optional link to the provider's dashboard / API console. */
+  providerLink?: string;
+  /** Pricing tier label for the original model. */
+  tier?: string;
 }
 
 const modalTitleId = 'alternatives-modal-title';
@@ -19,14 +27,10 @@ const INITIAL_VISIBLE = 3;
 function CopyIDBtn({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    const announce = (ok: boolean) => {
+    copyText(id).then((ok) => {
       setCopied(ok);
       if (ok) setTimeout(() => setCopied(false), 1500);
-    };
-    navigator.clipboard.writeText(id).then(
-      () => announce(true),
-      () => announce(fallbackCopy(id))
-    );
+    });
   };
   return (
     <>
@@ -46,23 +50,17 @@ function CopyIDBtn({ id }: { id: string }) {
   );
 }
 
-function fallbackCopy(text: string): boolean {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    return document.execCommand('copy');
-  } catch {
-    return false;
-  } finally {
-    document.body.removeChild(textarea);
-  }
-}
-
-export function AlternativesModal({ isOpen, onClose, originalModel, alternatives, onSelectAlternative, getPrice }: AlternativesModalProps) {
+export function AlternativesModal({
+  isOpen,
+  onClose,
+  originalModel,
+  alternatives,
+  onSelectAlternative,
+  getPrice,
+  providerName,
+  providerLink,
+  tier,
+}: AlternativesModalProps) {
   const modalRef = useModal(isOpen && !!originalModel, onClose);
   const [showAll, setShowAll] = useState(false);
   const visibleAlternatives = showAll ? alternatives : alternatives.slice(0, INITIAL_VISIBLE);
@@ -73,6 +71,12 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
   }, [originalModel?.model_id]);
 
   if (!isOpen || !originalModel) return null;
+
+  const price = getPrice?.(originalModel.model_id);
+  const context = originalModel.context_window;
+  const maxOutput = originalModel.max_output_tokens;
+  const releaseDate = formatReleaseDate(originalModel.release_date);
+  const modalities = originalModel.modality ?? [];
 
   return (
     <div className="modal-overlay" onClick={onClose} role="presentation">
@@ -98,31 +102,74 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
           <h2 id={modalTitleId} className="modal-title">
             {originalModel.name}
           </h2>
+          {providerName && (
+            <div className="modal-provider">
+              {providerLink ? (
+                <a
+                  href={providerLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="modal-provider-link"
+                >
+                  {providerName}
+                  <IconExternal width={10} height={10} />
+                </a>
+              ) : (
+                <span className="modal-provider-name">{providerName}</span>
+              )}
+            </div>
+          )}
           <div className="modal-model-id">
             <code>{originalModel.model_id}</code>
             <CopyIDBtn id={originalModel.model_id} />
           </div>
         </div>
 
-        <div className="modal-stats">
-          {originalModel.context_window && (
-            <span className="badge-modality">
-              {originalModel.context_window >= 1_000_000
-                ? `${(originalModel.context_window / 1_000_000).toFixed(1)}M`
-                : `${Math.floor(originalModel.context_window / 1000)}k`} ctx
-            </span>
+        {originalModel.description && (
+          <p className="modal-description">{originalModel.description}</p>
+        )}
+
+        <div className="modal-specs">
+          {tier && (
+            <div className="spec-item">
+              <span className="spec-label">Tier</span>
+              <span className={`tier-badge ${TIER_CLASS[tier] ?? 'badge-tier-unknown'}`}>{tier}</span>
+            </div>
           )}
-          {(originalModel.modality ?? []).map((m) => (
-            <span key={m} className="badge-modality">{m.toUpperCase()}</span>
-          ))}
-          {(() => {
-            const price = getPrice?.(originalModel.model_id);
-            return price !== undefined && price > 0 ? (
-              <span className="badge-modality badge-modality--price" title="Cost per 1M tokens">
-                {formatCost(price)} /1M
+          {context != null && (
+            <div className="spec-item">
+              <span className="spec-label">Context</span>
+              <span className="spec-value">{formatCtx(context)} tokens</span>
+            </div>
+          )}
+          {maxOutput != null && (
+            <div className="spec-item">
+              <span className="spec-label">Max output</span>
+              <span className="spec-value">{formatCtx(maxOutput)} tokens</span>
+            </div>
+          )}
+          {releaseDate && (
+            <div className="spec-item">
+              <span className="spec-label">Released</span>
+              <span className="spec-value">{releaseDate}</span>
+            </div>
+          )}
+          <div className="spec-item">
+            <span className="spec-label">Price /1M</span>
+            <span className="spec-value">
+              {price === undefined ? '—' : price === 0 ? 'Free' : `${formatCost(price)} /1M`}
+            </span>
+          </div>
+          {modalities.length > 0 && (
+            <div className="spec-item">
+              <span className="spec-label">Modalities</span>
+              <span className="spec-value spec-value--modalities">
+                {modalities.map((m) => (
+                  <span key={m} className="modality-chip">{m.toUpperCase()}</span>
+                ))}
               </span>
-            ) : null;
-          })()}
+            </div>
+          )}
         </div>
 
         <div className="alt-list">

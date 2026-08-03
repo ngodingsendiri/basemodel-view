@@ -70,3 +70,33 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* Back-to-top affordance (floats above the compare bar) */
+.scroll-top-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 88px;
+  z-index: var(--z-sticky);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: color 0.15s, background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.scroll-top-btn:hover {
+  color: var(--accent);
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+
+.scroll-top-btn:active {
+  transform: scale(0.94);
+}

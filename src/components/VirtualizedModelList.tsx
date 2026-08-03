@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Model } from '../types';
 import { ModelCard } from './ModelCard';
 import { SkeletonCard } from './SkeletonCard';
-import { IconBox } from './icons';
+import { IconBox, IconChevronUp } from './icons';
 
 const MIN_CARD_WIDTH = 300;
 const CARD_GAP = 8;
@@ -14,6 +14,8 @@ interface VirtualizedModelListProps {
   getTier: (modelId: string) => string;
   getPrice?: (modelId: string) => number | undefined;
   compareSelected?: ReadonlySet<string>;
+  /** Disables adding new models once the comparison cap is reached. */
+  compareDisabled?: boolean;
   onToggleCompare?: (modelId: string) => void;
   onClick: (modelId: string) => void;
   onClearFilters?: () => void;
@@ -25,6 +27,7 @@ export function VirtualizedModelList({
   getTier,
   getPrice,
   compareSelected,
+  compareDisabled,
   onToggleCompare,
   onClick,
   onClearFilters,
@@ -32,6 +35,29 @@ export function VirtualizedModelList({
 }: VirtualizedModelListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(1);
+  const [showTopBtn, setShowTopBtn] = useState(false);
+
+  // Reset the scroll position whenever the visible model set changes (provider
+  // switch, search, sort, free-only), so users always start from the top of a
+  // new view instead of landing mid-list. useLayoutEffect runs before paint so
+  // the old scroll offset never flashes on screen.
+  const renderedSetRef = useRef(models);
+  useLayoutEffect(() => {
+    if (renderedSetRef.current !== models) {
+      renderedSetRef.current = models;
+      const el = parentRef.current;
+      if (el && el.scrollTop !== 0) el.scrollTo({ top: 0 });
+    }
+  }, [models]);
+
+  // Track scroll depth to reveal the "back to top" affordance.
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const onScroll = () => setShowTopBtn(el.scrollTop > 600);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Derive column count from the actual scroll-container width so the
   // virtualized grid reflows with the viewport.
@@ -59,6 +85,13 @@ export function VirtualizedModelList({
   }, [models, columns]);
 
   const loadingRows = Math.max(1, Math.ceil(LOADING_CARD_COUNT / columns));
+
+  const scrollToTop = useCallback(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+  }, []);
 
   const virtualizer = useVirtualizer({
     count: loading ? loadingRows : rows.length,
@@ -132,6 +165,7 @@ export function VirtualizedModelList({
                     tier={getTier(model.model_id)}
                     price={getPrice?.(model.model_id)}
                     compareSelected={compareSelected?.has(model.model_id)}
+                    compareDisabled={compareDisabled}
                     onToggleCompare={onToggleCompare}
                     onClick={onClick}
                   />
@@ -141,6 +175,11 @@ export function VirtualizedModelList({
           );
         })}
       </div>
+      {showTopBtn && (
+        <button type="button" className="scroll-top-btn" onClick={scrollToTop} aria-label="Scroll to top">
+          <IconChevronUp width={14} height={14} />
+        </button>
+      )}
     </div>
   );
 }

@@ -21,6 +21,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.compare-bar-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
 .compare-bar-btn {
   background: var(--accent-strong);
   border: 1px solid var(--accent-strong);

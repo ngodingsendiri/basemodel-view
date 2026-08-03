@@ -41,13 +41,33 @@ function CopyLinkButton() {
         aria-label={copied ? 'Copied' : 'Copy link with current filters'}
       >
         {copied ? <IconCheck width={12} height={12} /> : <IconClipboard width={12} height={12} />}
-        <span>{copied ? 'Copied' : 'Copy link'}</span>
+        <span className="btn-label">{copied ? 'Copied' : 'Copy link'}</span>
       </button>
       <span role="status" className="visually-hidden" aria-live="polite">
         {copied ? 'Link copied' : ''}
       </span>
     </>
   );
+}
+
+const NETWORK_ERROR_HINTS = [
+  'failed to fetch',
+  'networkerror',
+  'load failed',
+  'cors',
+  'network request failed',
+  'unexpected token',
+];
+
+/** Turn a raw exception message into a calm, human-readable error line. */
+function friendlyErrorMessage(raw: string | null | undefined): string {
+  if (!raw) return 'The model catalog could not be loaded. Please try again.';
+  const lowered = raw.toLowerCase();
+  if (lowered.includes('too many failed requests')) return raw;
+  if (NETWORK_ERROR_HINTS.some((hint) => lowered.includes(hint))) {
+    return 'Could not reach the data source. Check your internet connection and try again.';
+  }
+  return 'Something went wrong while loading the model catalog. Please try again.';
 }
 
 export default function App() {
@@ -81,6 +101,8 @@ export default function App() {
 
   const [compareOpen, setCompareOpen] = useState(false);
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
+  // Sidebar provider search — a local navigation aid, deliberately NOT a URL param.
+  const [providerQuery, setProviderQuery] = useState('');
   const sidebarMobileRef = useRef<HTMLElement | null>(null);
   const sidebarToggleRef = useRef<HTMLButtonElement | null>(null);
 
@@ -100,6 +122,21 @@ export default function App() {
   const toggleSidebarMobile = useCallback(() => {
     setSidebarMobileOpen((prev) => !prev);
   }, []);
+
+  // Brand click = go home (reset provider + close the mobile drawer).
+  const goHome = useCallback(() => {
+    setSelectedProviderId('all');
+    setSidebarMobileOpen(false);
+    setProviderQuery('');
+  }, [setSelectedProviderId]);
+
+  const visibleProviders = useMemo(() => {
+    const q = providerQuery.trim().toLowerCase();
+    return (data?.providers ?? [])
+      .filter((p) => (providerCounts.get(p.provider_id) ?? 0) > 0)
+      .filter((p) => !q || p.name.toLowerCase().includes(q))
+      .sort((a, b) => (providerCounts.get(b.provider_id) ?? 0) - (providerCounts.get(a.provider_id) ?? 0));
+  }, [data, providerCounts, providerQuery]);
 
   // Close the mobile sidebar drawer on Escape, returning focus to the toggle.
   useEffect(() => {
@@ -314,7 +351,7 @@ export default function App() {
       <div className="dashboard-layout error-state">
         <div className="error-icon"><IconWarning width={32} height={32} /></div>
         <div className="error-title">Failed to load data</div>
-        <div className="error-message">{error || 'Unknown error. The GitHub API may be unreachable.'}</div>
+        <div className="error-message">{friendlyErrorMessage(error)}</div>
         <button type="button" className="retry-btn" onClick={retry}>↻ Retry</button>
       </div>
     );
@@ -350,11 +387,13 @@ export default function App() {
         <aside ref={sidebarMobileRef} className={`sidebar${sidebarCollapsed ? ' sidebar--collapsed' : ''}${sidebarMobileOpen ? ' sidebar--mobile-open' : ''}`}>
         <div className="sidebar-header">
           <h1 className="brand">
-            <IconBrand className="brand-icon" width={22} height={22} />
-            <div>
-              <div className="brand-name">BaseModel</div>
-              <div className="brand-sub">Explorer</div>
-            </div>
+            <button type="button" className="brand-btn" onClick={goHome} aria-label="Go to home" title="Go to all providers">
+              <IconBrand className="brand-icon" width={22} height={22} />
+              <span className="brand-text">
+                <span className="brand-name">BaseModel</span>
+                <span className="brand-sub">Explorer</span>
+              </span>
+            </button>
           </h1>
           <button
             type="button"
@@ -380,17 +419,29 @@ export default function App() {
             className={`menu-item ${selectedProviderId === 'all' ? 'active' : ''}`}
             onClick={() => setSelectedProviderId('all')}
             aria-current={selectedProviderId === 'all' ? 'page' : undefined}
+            aria-label="All Providers"
+            title="All Providers"
           >
             <span className="menu-avatar" aria-hidden="true">AL</span>
             <span className="menu-label">All Providers</span>
-            <span className="menu-badge">{data.models.length}</span>
+            <span className="menu-badge" aria-hidden="true">{data.models.length}</span>
           </button>
 
-          <h2 className="menu-section-title sidebar-section-title" role="presentation">Providers</h2>
-          {data.providers
-            .filter((p) => (providerCounts.get(p.provider_id) ?? 0) > 0)
-            .sort((a, b) => (providerCounts.get(b.provider_id) ?? 0) - (providerCounts.get(a.provider_id) ?? 0))
-            .map((provider) => {
+          <h2 className="menu-section-title sidebar-section-title" role="presentation">
+            Providers <span className="provider-count" aria-hidden="true">{visibleProviders.length}</span>
+          </h2>
+          <input
+            type="search"
+            className="provider-search"
+            placeholder={`Search ${visibleProviders.length} providers…`}
+            value={providerQuery}
+            onChange={(e) => setProviderQuery(e.target.value)}
+            aria-label="Search providers"
+          />
+          {visibleProviders.length === 0 ? (
+            <div className="sidebar-empty">No providers match “{providerQuery}”.</div>
+          ) : (
+            visibleProviders.map((provider) => {
               const modelCount = providerCounts.get(provider.provider_id) ?? 0;
               const link = PROVIDER_LINKS.get(provider.provider_id);
               return (
@@ -400,12 +451,14 @@ export default function App() {
                     className={`menu-item ${selectedProviderId === provider.provider_id ? 'active' : ''}`}
                     onClick={() => setSelectedProviderId(provider.provider_id)}
                     aria-current={selectedProviderId === provider.provider_id ? 'page' : undefined}
+                    aria-label={provider.name}
+                    title={provider.name}
                   >
                     <span className="menu-avatar" aria-hidden="true">
                       {provider.name.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '?'}
                     </span>
                     <span className="menu-label">{provider.name}</span>
-                    <span className="menu-badge">{modelCount}</span>
+                    <span className="menu-badge" aria-hidden="true">{modelCount}</span>
                   </button>
                   {link && (
                     <a
@@ -421,7 +474,8 @@ export default function App() {
                   )}
                 </div>
               );
-            })}
+            })
+          )}
         </div>
 
         <div className="sidebar-footer">
@@ -469,20 +523,6 @@ export default function App() {
         <ErrorBoundary fallback={<ContentHeaderFallback onRetry={retry} />} resetKey={retryCount}>
           <div className="content-header">
             <div className="header-left">
-              <h2 className="content-title">{pageTitle}</h2>
-              <span className="content-count">
-                {filtered.length === total
-                  ? `${total} models`
-                  : `${filtered.length} / ${total} models`}
-              </span>
-              {loading && (
-                <span className="refresh-indicator" role="status" aria-live="polite">
-                  <span className="refresh-spinner" aria-hidden="true" />
-                  Refreshing…
-                </span>
-              )}
-            </div>
-            <div className="header-controls">
               <button
                 type="button"
                 ref={sidebarToggleRef}
@@ -494,6 +534,46 @@ export default function App() {
               >
                 <IconMenu width={15} height={15} />
               </button>
+              <h2 className="content-title">{pageTitle}</h2>
+              <span className="content-count" role="status" aria-live="polite">
+                {filtered.length === total
+                  ? `${total} models`
+                  : `${filtered.length} / ${total} models`}
+              </span>
+              {loading && (
+                <span className="refresh-indicator" role="status" aria-live="polite">
+                  <span className="refresh-spinner" aria-hidden="true" />
+                  Refreshing…
+                </span>
+              )}
+            </div>
+
+            <div className="search-wrap" role="search">
+              <svg className="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input
+                id="search-input"
+                type="text"
+                className="search-input"
+                placeholder="Search models…"
+                title="Press / to focus search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    if (searchQuery) setSearchQuery('');
+                    else e.currentTarget.blur();
+                  }
+                }}
+                aria-label="Filter models"
+              />
+              {searchQuery && (
+                <button type="button" className="search-clear" onClick={() => setSearchQuery('')} aria-label="Clear search">
+                  <IconClose width={11} height={11} />
+                </button>
+              )}
+            </div>
+
+            <div className="header-controls">
               <label className="free-toggle" title="Show free models only">
                 <input
                   type="checkbox"
@@ -511,10 +591,10 @@ export default function App() {
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value as SortKey)}
                 >
-                  <option value="name">Sort: Name</option>
-                  <option value="context">Sort: Context ↓</option>
-                  <option value="date">Sort: Newest</option>
-                  <option value="price">Sort: Price ↑</option>
+                  <option value="name">Name (A–Z)</option>
+                  <option value="context">Context: largest</option>
+                  <option value="date">Newest first</option>
+                  <option value="price">Price: cheapest</option>
                 </select>
                 <IconChevronDown width={12} height={12} />
               </div>
@@ -539,7 +619,7 @@ export default function App() {
                 title={filtered.length === 0 ? 'Nothing to export' : `Export ${filtered.length} models to CSV`}
               >
                 <IconDownload width={12} height={12} />
-                Export CSV
+                <span className="btn-label">Export CSV</span>
               </button>
 
               <button
@@ -555,31 +635,6 @@ export default function App() {
                     ? <IconSun width={15} height={15} />
                     : <IconMoon width={15} height={15} />}
               </button>
-
-              <label htmlFor="search-input" className="visually-hidden">Filter models</label>
-              <div className="search-wrap" role="search">
-                <svg className="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input
-                  id="search-input"
-                  type="text"
-                  className="search-input"
-                  placeholder="Filter models…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      if (searchQuery) setSearchQuery('');
-                      else e.currentTarget.blur();
-                    }
-                  }}
-                  aria-label="Filter models"
-                />
-                {searchQuery && (
-                  <button type="button" className="search-clear" onClick={() => setSearchQuery('')} aria-label="Clear search">
-                    <IconClose width={11} height={11} />
-                  </button>
-                )}
-              </div>
             </div>
           </div>
         </ErrorBoundary>
@@ -591,6 +646,7 @@ export default function App() {
               getTier={getTierForModel}
               getPrice={getPriceForModel}
               compareSelected={compare.selected}
+              compareDisabled={compare.isFull}
               onToggleCompare={compare.toggle}
               onClick={handleModelClick}
               onClearFilters={clearFilters}
@@ -608,6 +664,9 @@ export default function App() {
           alternatives={selectedAlternatives}
           onSelectAlternative={handleSelectAlternative}
           getPrice={getPriceForModel}
+          providerName={originalModel ? data.providers.find((p) => p.provider_id === originalModel.provider_id)?.name : undefined}
+          providerLink={originalModel ? PROVIDER_LINKS.get(originalModel.provider_id) : undefined}
+          tier={originalModel ? getTierForModel(originalModel.model_id) : undefined}
         />
       </ErrorBoundary>
 
@@ -616,6 +675,8 @@ export default function App() {
           count={compare.selectedModels.length}
           onCompare={() => setCompareOpen(true)}
           onClear={compare.clear}
+          isFull={compare.isFull}
+          max={compare.maxCompare}
         />
       )}
 

@@ -30,9 +30,34 @@
   margin: 0;
 }
 
+.brand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 2px;
+  margin: -2px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s;
+}
+
+.brand-btn:hover {
+  opacity: 0.8;
+}
+
 .brand-icon {
   color: var(--accent);
   flex-shrink: 0;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .brand-name {
@@ -64,7 +89,7 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--text-muted);
@@ -76,6 +101,41 @@
 
 .sidebar-section-title {
   margin-top: 1rem;
+}
+
+.provider-count {
+  color: var(--text-muted);
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.provider-search {
+  width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  padding: 6px 10px;
+  margin: 0 0 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.provider-search:focus {
+  border-color: var(--accent);
+}
+
+.provider-search::placeholder {
+  color: var(--text-muted);
+}
+
+.sidebar-empty {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  padding: 8px 10px;
+  line-height: 1.4;
 }
 
 .menu-item-row {
@@ -168,9 +228,15 @@
 
 .sidebar--collapsed .menu-section-title {
   text-align: center;
-  font-size: 0.6rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.12em;
   padding: 12px 0 4px;
+}
+
+.sidebar--collapsed .provider-search,
+.sidebar--collapsed .provider-count,
+.sidebar--collapsed .sidebar-empty {
+  display: none;
 }
 
 /* In the collapsed icon rail the tooltip points right so it is not clipped
@@ -285,10 +351,10 @@
   display: inline-block;
 }
 
-.legend-swatch.badge-tier-free { background: #047857; }
-.legend-swatch.badge-tier-budget { background: #1e3a8a; }
-.legend-swatch.badge-tier-balanced { background: #6d28d9; }
-.legend-swatch.badge-tier-premium { background: #92400e; }
+.legend-swatch.badge-tier-free { background: var(--tier-free); }
+.legend-swatch.badge-tier-budget { background: var(--tier-budget); }
+.legend-swatch.badge-tier-balanced { background: var(--tier-balanced); }
+.legend-swatch.badge-tier-premium { background: var(--tier-premium); }
 
 .sidebar-legend .modality-chip {
   font-size: var(--fs-xs);

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Model } from '../schemas/api';
 import type { ModelId } from '../domain/branded';
 
+import { MAX_COMPARE } from '../components/ui/constants';
+
 export function useCompare(models: Model[], urlSeed: ModelId[] = []) {
   const [selected, setSelected] = useState<ReadonlySet<ModelId>>(new Set());
 
@@ -9,8 +11,13 @@ export function useCompare(models: Model[], urlSeed: ModelId[] = []) {
     const id = modelId as ModelId;
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        // Respect the comparison cap; removing stays allowed.
+        if (prev.size >= MAX_COMPARE) return prev;
+        next.add(id);
+      }
       return next;
     });
   }, []);
@@ -25,7 +32,7 @@ export function useCompare(models: Model[], urlSeed: ModelId[] = []) {
     if (models.length === 0) return;
     appliedSeedRef.current = true;
     const known = new Set(models.map((m) => m.model_id));
-    const seed = new Set<ModelId>(urlSeed.filter((id) => known.has(id)));
+    const seed = new Set<ModelId>(urlSeed.filter((id) => known.has(id)).slice(0, MAX_COMPARE));
     if (seed.size > 0) setSelected(seed);
   }, [models, urlSeed]);
 
@@ -46,5 +53,12 @@ export function useCompare(models: Model[], urlSeed: ModelId[] = []) {
     [models, selected]
   );
 
-  return { selected, toggle, clear, selectedModels };
+  return {
+    selected,
+    toggle,
+    clear,
+    selectedModels,
+    isFull: selected.size >= MAX_COMPARE,
+    maxCompare: MAX_COMPARE,
+  };
 }

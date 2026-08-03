@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useCompare } from './useCompare';
+import { MAX_COMPARE } from '../components/ui/constants';
 import { modelId, providerId } from '../domain/branded';
 import type { Model } from '../schemas/api';
 
@@ -23,6 +24,45 @@ describe('useCompare', () => {
 
     act(() => result.current.toggle('a/model1'));
     expect(result.current.selectedModels.map((m) => m.model_id)).toEqual(['b/model2']);
+  });
+
+  it('caps the selection at MAX_COMPARE and reports isFull', () => {
+    const many: Model[] = Array.from({ length: MAX_COMPARE + 3 }, (_, i) => ({
+      model_id: modelId(`p/m${i}`),
+      name: `Model ${i}`,
+      provider_id: providerId('p'),
+      modality: ['text'],
+    }));
+    const { result } = renderHook(() => useCompare(many));
+
+    for (let i = 0; i < MAX_COMPARE; i++) {
+      act(() => result.current.toggle(`p/m${i}`));
+    }
+    expect(result.current.selected.size).toBe(MAX_COMPARE);
+    expect(result.current.isFull).toBe(true);
+
+    // Adding beyond the cap is ignored...
+    act(() => result.current.toggle(`p/m${MAX_COMPARE}`));
+    expect(result.current.selected.size).toBe(MAX_COMPARE);
+
+    // ...but removing still works, and then the slot frees up.
+    act(() => result.current.toggle(`p/m0`));
+    expect(result.current.selected.size).toBe(MAX_COMPARE - 1);
+    expect(result.current.isFull).toBe(false);
+    act(() => result.current.toggle(`p/m${MAX_COMPARE}`));
+    expect(result.current.selected.size).toBe(MAX_COMPARE);
+  });
+
+  it('truncates an oversized URL seed to MAX_COMPARE', () => {
+    const many: Model[] = Array.from({ length: MAX_COMPARE + 3 }, (_, i) => ({
+      model_id: modelId(`p/m${i}`),
+      name: `Model ${i}`,
+      provider_id: providerId('p'),
+      modality: ['text'],
+    }));
+    const seed = many.map((m) => m.model_id);
+    const { result } = renderHook(() => useCompare(many, seed));
+    expect(result.current.selected.size).toBe(MAX_COMPARE);
   });
 
   it('clears the whole selection', () => {

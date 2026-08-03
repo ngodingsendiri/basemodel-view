@@ -16,7 +16,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 24px;
-  max-width: 480px;
+  max-width: 560px;
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -44,7 +44,7 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0;
   transition: color 0.15s, background 0.15s;
 }
@@ -53,19 +53,30 @@
 
 .close-button:active { background: var(--accent-glow); color: var(--accent); }
 
-.badge-modality {
-  font-size: var(--fs-xs);
-  background: var(--chip-bg);
-  border: 1px solid var(--border-soft);
-  border-radius: 4px;
-  padding: 2px 6px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
 /* Modal Content Styles */
-.modal-header { margin-bottom: 1.25rem; }
+.modal-header { margin-bottom: 0.75rem; }
 .modal-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
+.modal-provider { margin-top: 2px; }
+.modal-provider-name {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.modal-provider-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+  padding: 2px 0;
+  transition: color 0.15s;
+}
+.modal-provider-link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
 .modal-model-id {
   display: flex;
   align-items: center;
@@ -74,15 +85,56 @@
 }
 .modal-model-id code {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
-.modal-stats {
-  display: flex;
+
+.modal-description {
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 0.75rem;
+}
+
+/* Spec grid */
+.modal-specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 6px;
   margin-bottom: 1.25rem;
-  flex-wrap: wrap;
 }
+.spec-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+}
+.spec-label {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.spec-value {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.spec-value--modalities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
 .alt-list { margin-top: 1rem; }
 .alt-list-title {
   font-size: var(--fs-sm);
@@ -125,7 +177,7 @@
 }
 .alt-item-id {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -176,7 +228,7 @@
 }
 
 .alt-item-nav:focus-visible {
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .alt-item-price {
@@ -184,10 +236,4 @@
   color: var(--accent);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.badge-modality--price {
-  color: var(--text-on-accent);
-  background: #1e3a8a;
-  border-color: #1e3a8a;
 }

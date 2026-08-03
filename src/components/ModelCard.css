@@ -186,9 +186,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: var(--radius-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -196,17 +196,17 @@
   flex-shrink: 0;
 }
 
-.badge-tier-free     { background: #047857; color: var(--text-on-accent); border: 1px solid rgba(16,185,129,0.4); }
-.badge-tier-budget   { background: #1e3a8a; color: var(--text-on-accent); border: 1px solid rgba(59,130,246,0.4); }
-.badge-tier-balanced { background: #6d28d9; color: var(--text-on-accent); border: 1px solid rgba(139,92,246,0.4); }
-.badge-tier-premium  { background: #92400e; color: var(--text-on-accent); border: 1px solid rgba(245,158,11,0.4); }
+.badge-tier-free     { background: var(--tier-free); color: var(--text-on-accent); border: 1px solid rgba(16,185,129,0.4); }
+.badge-tier-budget   { background: var(--tier-budget); color: var(--text-on-accent); border: 1px solid rgba(59,130,246,0.4); }
+.badge-tier-balanced { background: var(--tier-balanced); color: var(--text-on-accent); border: 1px solid rgba(139,92,246,0.4); }
+.badge-tier-premium  { background: var(--tier-premium); color: var(--text-on-accent); border: 1px solid rgba(245,158,11,0.4); }
 .badge-tier-unknown  { background: var(--chip-bg); color: var(--text-muted); border: 1px solid var(--border-soft); }
 
-/* Price display */
+/* Price display — deliberately neutral so it never collides with tier colors */
 .stat-chip--price {
-  color: var(--text-on-accent);
-  background: #1e3a8a;
-  border-color: #1e3a8a;
+  color: var(--text-primary);
+  background: var(--chip-bg);
+  border-color: var(--chip-border);
 }
 
 /* Compare toggle (card) */
