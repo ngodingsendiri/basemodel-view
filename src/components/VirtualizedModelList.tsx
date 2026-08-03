@@ -72,7 +72,7 @@ export function VirtualizedModelList({
 
   if (loading) {
     return (
-      <div ref={parentRef} className="virtualized-list">
+      <div ref={parentRef} className="virtualized-list" role="list" aria-label="Model list" aria-busy="true">
         <div className="virtualized-list-inner" style={{ height: virtualizer.getTotalSize() }}>
           {virtualizer.getVirtualItems().map((virtualRow) => (
             <div
@@ -80,6 +80,7 @@ export function VirtualizedModelList({
               ref={virtualizer.measureElement}
               data-index={virtualRow.index}
               className="virtualized-row"
+              role="listitem"
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
               <div className="virtualized-row-inner" style={rowGridStyle}>
@@ -109,7 +110,7 @@ export function VirtualizedModelList({
   }
 
   return (
-    <div ref={parentRef} className="virtualized-list">
+    <div ref={parentRef} className="virtualized-list" role="list" aria-label="Model list" aria-busy={loading || undefined}>
       <div className="virtualized-list-inner" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const row = rows[virtualRow.index];
@@ -120,6 +121,7 @@ export function VirtualizedModelList({
               ref={virtualizer.measureElement}
               data-index={virtualRow.index}
               className="virtualized-row"
+              role="listitem"
               style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
               <div className="virtualized-row-inner" style={rowGridStyle}>

@@ -12,6 +12,14 @@
 .sidebar-header {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-collapse-btn {
+  flex-shrink: 0;
 }
 
 .brand {
@@ -80,7 +88,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 8px;
+  gap: 6px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
   background: transparent;
   border: none;
@@ -99,10 +108,86 @@
   color: var(--text-primary);
   box-shadow: inset 2px 0 0 var(--accent);
 }
-.menu-item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-avatar {
+  display: none;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--badge-bg);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.menu-item.active .menu-avatar {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+/* Collapsed sidebar: icon-only rail */
+.sidebar--collapsed {
+  width: 60px;
+  overflow: visible;
+}
+
+.sidebar--collapsed .sidebar-header {
+  justify-content: center;
+  padding: 12px;
+}
+
+.sidebar--collapsed .brand,
+.sidebar--collapsed .brand-name,
+.sidebar--collapsed .brand-sub,
+.sidebar--collapsed .menu-label,
+.sidebar--collapsed .menu-badge,
+.sidebar--collapsed .api-key-link,
+.sidebar--collapsed .sidebar-footer,
+.sidebar--collapsed .sidebar-legend {
+  display: none;
+}
+
+.sidebar--collapsed .menu-item {
+  justify-content: center;
+  padding: 9px 0;
+}
+
+.sidebar--collapsed .menu-item .menu-avatar {
+  display: inline-flex;
+}
+
+.sidebar--collapsed .menu-section-title {
+  text-align: center;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  padding: 12px 0 4px;
+}
+
+/* In the collapsed icon rail the tooltip points right so it is not clipped
+   by the narrow sidebar (overflow: hidden). */
+.sidebar--collapsed .sidebar-collapse-btn::after {
+  left: calc(100% + 8px);
+  right: auto;
+  top: 50%;
+}
+
+.sidebar--collapsed .sidebar-collapse-btn::after,
+.sidebar--collapsed .sidebar-collapse-btn:hover::after,
+.sidebar--collapsed .sidebar-collapse-btn:focus-visible::after {
+  transform: translateY(-50%);
+}
 
 .menu-badge {
-  background: rgba(255,255,255,0.07);
+  background: var(--badge-bg);
   color: var(--text-secondary);
   font-size: 0.68rem;
   padding: 1px 5px;
@@ -114,15 +199,15 @@
 
 .menu-item.active .menu-badge {
   background: var(--accent-strong);
-  color: #fff;
+  color: var(--text-on-accent);
 }
 
 .api-key-link {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   text-decoration: none;
@@ -141,6 +226,72 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.sidebar-legend {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.legend-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend-label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+
+.legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.legend-swatch.badge-tier-free { background: var(--green); }
+.legend-swatch.badge-tier-budget { background: var(--accent); }
+.legend-swatch.badge-tier-balanced { background: var(--purple); }
+.legend-swatch.badge-tier-premium { background: var(--yellow); }
+
+.sidebar-legend .modality-chip {
+  font-size: var(--fs-xs);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.legend-modality-name {
+  color: var(--text-muted);
 }
 
 .last-updated {

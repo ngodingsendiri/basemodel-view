@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Model } from '../types';
 import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
 import { TIER_CLASS, MODALITY_LABEL } from './ui/constants';
-import { IconStar, IconCheck } from './icons';
+import { IconTag, IconCheck } from './icons';
 import { sanitizeModelName, sanitizeModelId, sanitizeText } from '../utils/sanitize';
 
 interface ModelCardProps {
@@ -47,19 +47,24 @@ function CopyButton({ text, label }: { text: string; label: string }) {
     );
   };
   return (
-    <button
-      type="button"
-      className="copy-btn"
-      onClick={copy}
-      title={copied ? 'Copied' : `Copy ${label}`}
-      aria-label={copied ? 'Copied' : `Copy ${label}`}
-    >
-      {copied ? (
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
-      ) : (
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-      )}
-    </button>
+    <>
+      <button
+        type="button"
+        className="copy-btn"
+        onClick={copy}
+        title={copied ? 'Copied' : `Copy ${label}`}
+        aria-label={copied ? 'Copied' : `Copy ${label}`}
+      >
+        {copied ? (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+        ) : (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        )}
+      </button>
+      <span role="status" className="visually-hidden" aria-live="polite">
+        {copied ? `Copied ${label}` : ''}
+      </span>
+    </>
   );
 }
 
@@ -88,7 +93,7 @@ export function ModelCard({ model, tier, price, compareSelected, onToggleCompare
           <span className={`tier-badge ${TIER_CLASS[tier] ?? 'badge-tier-unknown'}`}>
             {isFree ? (
               <>
-                <IconStar width={10} height={10} /> Free
+                <IconTag width={10} height={10} /> Free
               </>
             ) : (
               sanitizeText(tier)

@@ -6,7 +6,8 @@ import { CompareModal } from './components/CompareModal';
 import { VirtualizedModelList } from './components/VirtualizedModelList';
 import { SkeletonCard } from './components/SkeletonCard';
 import { ErrorBoundary, ModelListFallback, SidebarFallback, ContentHeaderFallback, ModalFallback } from './components/ErrorBoundary';
-import { IconWarning, IconClose, IconChevronDown, IconBrand } from './components/icons';
+import { IconWarning, IconClose, IconChevronDown, IconBrand, IconTag, IconClipboard, IconCheck, IconSun, IconMoon, IconMonitor, IconPanelLeft, IconPanelLeftClose, IconDownload } from './components/icons';
+import { TIER_CLASS, MODALITY_LABEL } from './components/ui/constants';
 import { PROVIDER_LINKS } from './config/providers';
 import type { ModelId } from './domain/branded';
 import type { SortKey } from './types/filters';
@@ -16,7 +17,38 @@ import { useCompare } from './hooks/useCompare';
 import { useExplorerData } from './hooks/useExplorerData';
 import { useFilters } from './hooks/useFilters';
 import { useFilteredModels } from './hooks/useFilteredModels';
+import { useTheme } from './hooks/useTheme';
 import './index.css';
+
+function CopyLinkButton() {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(window.location.href).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => {}
+    );
+  };
+  return (
+    <>
+      <button
+        type="button"
+        className="share-link-btn"
+        onClick={copy}
+        title={copied ? 'Copied' : 'Copy link with current filters'}
+        aria-label={copied ? 'Copied' : 'Copy link with current filters'}
+      >
+        {copied ? <IconCheck width={12} height={12} /> : <IconClipboard width={12} height={12} />}
+        <span>{copied ? 'Copied' : 'Copy link'}</span>
+      </button>
+      <span role="status" className="visually-hidden" aria-live="polite">
+        {copied ? 'Link copied' : ''}
+      </span>
+    </>
+  );
+}
 
 export default function App() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,6 +80,19 @@ export default function App() {
   } = useFilters();
 
   const [compareOpen, setCompareOpen] = useState(false);
+
+  const { mode, effectiveTheme, cycle } = useTheme();
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('bm-sidebar') === 'collapsed'
+  );
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('bm-sidebar', next ? 'collapsed' : 'expanded');
+      return next;
+    });
+  }, []);
 
   const { isOpen, originalModel, selectedAlternatives, open, close } = useAlternativesModal();
 
@@ -151,6 +196,48 @@ export default function App() {
     }, { replace: true });
   }, [compare.selected, setSearchParams]);
 
+  // Global shortcut: "/" focuses the search box (unless already typing).
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return;
+      e.preventDefault();
+      document.getElementById('search-input')?.focus();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  // Export the current (filtered) view to a CSV file.
+  const exportCsv = useCallback(() => {
+    const providerName = new Map((data?.providers ?? []).map((p) => [p.provider_id, p.name]));
+    const header = ['Name', 'Model ID', 'Provider', 'Tier', 'Price per 1M', 'Context', 'Max Output', 'Release', 'Modalities', 'Description'];
+    const esc = (v: string | number | undefined | null) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = filtered.map((m) => [
+      esc(m.name),
+      esc(m.model_id),
+      esc(providerName.get(m.provider_id) ?? m.provider_id),
+      esc(getTierForModel(m.model_id)),
+      esc(getPriceForModel(m.model_id)),
+      esc(m.context_window),
+      esc(m.max_output_tokens),
+      esc(m.release_date),
+      esc((m.modality ?? []).join(' ')),
+      esc(m.description),
+    ]);
+    const csv = [header.map(esc).join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `basemodel-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [data?.providers, filtered, getTierForModel, getPriceForModel]);
+
   // Arrow-key navigation between sidebar tabs (roving tabindex pattern).
   const handleTabListKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
     const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
@@ -184,8 +271,8 @@ export default function App() {
     nextTab.click();
   };
 
-  // --- Loading skeleton ---
-  if (loading) {
+  // --- Loading skeleton (only when nothing to render yet) ---
+  if (loading && !data) {
     return (
       <div className="dashboard-layout">
         <aside className="sidebar">
@@ -237,10 +324,14 @@ export default function App() {
     : (providerCounts.get(selectedProviderId) ?? 0);
 
   return (
-    <div className="dashboard-layout">
+    <div className={`dashboard-layout${compare.selectedModels.length > 0 ? ' has-compare-bar' : ''}`}>
+      <a href="#models-panel" className="skip-link">
+        Skip to content
+      </a>
+
       {/* Sidebar */}
       <ErrorBoundary fallback={<SidebarFallback onRetry={retry} />} resetKey={retryCount}>
-        <aside className="sidebar">
+        <aside className={`sidebar${sidebarCollapsed ? ' sidebar--collapsed' : ''}`}>
         <div className="sidebar-header">
           <h1 className="brand">
             <IconBrand className="brand-icon" width={22} height={22} />
@@ -249,6 +340,17 @@ export default function App() {
               <div className="brand-sub">Explorer</div>
             </div>
           </h1>
+          <button
+            type="button"
+            className="icon-btn sidebar-collapse-btn"
+            onClick={toggleSidebar}
+            data-tooltip={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed
+              ? <IconPanelLeftClose width={15} height={15} />
+              : <IconPanelLeft width={15} height={15} />}
+          </button>
         </div>
 
         <div
@@ -268,7 +370,8 @@ export default function App() {
             id="tab-all"
             tabIndex={selectedProviderId === 'all' ? 0 : -1}
           >
-            <span>All Providers</span>
+            <span className="menu-avatar" aria-hidden="true">AL</span>
+            <span className="menu-label">All Providers</span>
             <span className="menu-badge">{data.models.length}</span>
           </button>
 
@@ -291,7 +394,10 @@ export default function App() {
                     id={`tab-${provider.provider_id}`}
                     tabIndex={selectedProviderId === provider.provider_id ? 0 : -1}
                   >
-                    <span>{sanitizeProviderName(provider.name)}</span>
+                    <span className="menu-avatar" aria-hidden="true">
+                      {sanitizeProviderName(provider.name).replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '?'}
+                    </span>
+                    <span className="menu-label">{sanitizeProviderName(provider.name)}</span>
                     <span className="menu-badge">{modelCount}</span>
                   </button>
                   {link && (
@@ -312,6 +418,32 @@ export default function App() {
         </div>
 
         <div className="sidebar-footer">
+          <div className="sidebar-legend">
+            <h3 className="legend-title">Legend</h3>
+            <div className="legend-group">
+              <span className="legend-label">Tier</span>
+              <div className="legend-items">
+                {Object.keys(TIER_CLASS).map((t) => (
+                  <span key={t} className="legend-item" title={`${t} price tier`}>
+                    <span className={`legend-swatch ${TIER_CLASS[t]}`} aria-hidden="true" />
+                    {t === 'Free' && <IconTag width={10} height={10} aria-hidden="true" />}
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="legend-group">
+              <span className="legend-label">Modality</span>
+              <div className="legend-items">
+                {Object.entries(MODALITY_LABEL).map(([key, label]) => (
+                  <span key={key} className="legend-item legend-item--modality" title={key}>
+                    <span className="modality-chip">{label}</span>
+                    <span className="legend-modality-name">{key}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
           {lastUpdated && (
             <div className="last-updated" title={new Date(lastUpdated).toLocaleString()}>
               Updated {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -326,7 +458,7 @@ export default function App() {
       </ErrorBoundary>
 
       {/* Main Content */}
-      <main className="main-content">
+      <main className="main-content" aria-busy={loading && !!data}>
         <ErrorBoundary fallback={<ContentHeaderFallback onRetry={retry} />} resetKey={retryCount}>
           <div className="content-header">
             <div className="header-left">
@@ -336,6 +468,12 @@ export default function App() {
                   ? `${total} models`
                   : `${filtered.length} / ${total} models`}
               </span>
+              {loading && (
+                <span className="refresh-indicator" role="status" aria-live="polite">
+                  <span className="refresh-spinner" aria-hidden="true" />
+                  Refreshing…
+                </span>
+              )}
             </div>
             <div className="header-controls">
               <label className="free-toggle" title="Show free models only">
@@ -373,6 +511,33 @@ export default function App() {
                 </button>
               )}
 
+              <CopyLinkButton />
+
+              <button
+                type="button"
+                className="export-btn"
+                onClick={exportCsv}
+                disabled={filtered.length === 0}
+                title={filtered.length === 0 ? 'Nothing to export' : `Export ${filtered.length} models to CSV`}
+              >
+                <IconDownload width={12} height={12} />
+                Export CSV
+              </button>
+
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={cycle}
+                data-tooltip={`Theme: ${effectiveTheme} — switch light/dark/system`}
+                aria-label={`Theme: ${effectiveTheme}. Switch light, dark, or system`}
+              >
+                {mode === 'system'
+                  ? <IconMonitor width={15} height={15} />
+                  : mode === 'light'
+                    ? <IconSun width={15} height={15} />
+                    : <IconMoon width={15} height={15} />}
+              </button>
+
               <label htmlFor="search-input" className="visually-hidden">Filter models</label>
               <div className="search-wrap" role="search">
                 <svg className="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -401,7 +566,7 @@ export default function App() {
           </div>
         </ErrorBoundary>
 
-        <div className="content-body" id="models-panel">
+        <div className="content-body" id="models-panel" tabIndex={-1}>
           <ErrorBoundary fallback={<ModelListFallback onRetry={retry} />} resetKey={retryCount}>
             <VirtualizedModelList
               models={filtered}
@@ -411,7 +576,7 @@ export default function App() {
               onToggleCompare={compare.toggle}
               onClick={handleModelClick}
               onClearFilters={clearFilters}
-              loading={loading}
+              loading={loading && !data}
             />
           </ErrorBoundary>
         </div>

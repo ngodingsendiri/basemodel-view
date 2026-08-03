@@ -11,7 +11,6 @@ export function formatReleaseDate(dateStr?: string): string | null {
 
 export function formatCost(n: number | undefined): string {
   if (n === undefined) return '—';
-  if (n === 0) return 'Free';
   const formatted = n.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: n < 1 ? 4 : 2,

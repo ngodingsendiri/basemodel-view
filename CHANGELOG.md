@@ -13,15 +13,61 @@ All notable changes to BaseModel Explorer are documented here.
 - **`PROVIDER_LINKS` relocated**: from `src/schemas/api.ts` to `src/config/providers.ts` — provider links no longer live in the validation layer
 - **CSS modularization**: monolithic `index.css` split into per-component files (`Sidebar.css`, `ModelCard.css`, `VirtualizedModelList.css`, `AlternativesModal.css`, `CompareModal.css`, `CompareBar.css`, `SkeletonCard.css`) imported in cascade order from `index.css`
 - **Modal focus trap**: `AlternativesModal` and `CompareModal` now share the `useFocusTrap` hook (removed duplicated trap code)
+- **`useModal` hook**: shared modal lifecycle (focus trap, Escape-to-close, body scroll lock, focus restore) extracted; deduped the duplicated effects in `AlternativesModal` and `CompareModal`
 
 ### Features
 
 - **Provider-name search**: search query now matches provider names in addition to model names/IDs
 
+### UI/UX
+
+- **Retry no longer blanks the UI**: full-page skeleton now only renders when there is no data at all; background refreshes keep the last content visible with a subtle "Refreshing…" spinner and `aria-busy`
+- **Compare bar no longer covers the last card row**: `.has-compare-bar` adds bottom padding to the scroll container while a comparison is active
+- **Compare toggle affordance**: card toggle is now always visible (opacity 0.85) instead of hover-only, and pressing it gives a scale-pulse animation for feedback
+- **Disabled Compare button explained**: the bar shows "pick one more to compare" when only 1 model is selected, plus `title`/`aria-disabled`
+- **Free badge icon**: the misleading star was replaced with a price-tag icon (`IconTag`)
+- **Tier & modality legend**: new collapsible legend in the sidebar footer mapping tier colors and modality chip abbreviations
+- **Alternatives expand toggle**: "Show less" now collapses the list back after expanding
+- **Copy feedback for screen readers**: copy buttons announce "Copied" via `role="status"` live regions
+- **Mobile header hierarchy**: on small screens the title, controls, and search now stack into separate rows (search gets its own full-width row)
+- **Copy link button**: header button copies the current URL (with all active filters) to share a filtered view
+
+### Global-standard UI audit
+
+- **Light & dark themes**: full token sets for both palettes; the app follows the OS `prefers-color-scheme` and offers a light/dark/system toggle (`useTheme` + `data-theme` on `<html>`, persisted in localStorage). All hardcoded colors migrated to tokens (`--bg-elevated`, `--border-hover`, `--chip-bg`, etc.)
+- **Design token scale**: added type scale (`--fs-2xs`→`--fs-2xl`), line-heights, 4px spacing scale, radius scale, shadow/elevation tokens, and z-index scale; body line-height set via token
+- **Consistent focus rings**: single global `:focus-visible` rule now covers every interactive element (menu, close, copy, toggle, compare bar, export, theme, etc.); per-component duplicate rules removed
+- **Reduced motion**: `prefers-reduced-motion` disables animations/transitions and smooth scrolling
+- **Touch targets**: bumped small controls to WCAG 2.2-friendly sizes (copy 26px, compare toggle 28px, header buttons +6px padding, api-key link 28px, search-clear 28px)
+- **Font loading consolidated**: removed the duplicate render-blocking Google Fonts `@import`; Inter loads once via `<link>` in `index.html`
+- **Collapsible sidebar**: icon-only rail with provider abbreviation avatars, persisted in localStorage; resets to full width on mobile
+- **Skip-to-content link**: `Skip to content` appears on focus (WCAG 2.4.1)
+- **List semantics**: virtualized model list exposes `role="list"`/`role="listitem"` + `aria-label` + `aria-busy` to assistive tech
+- **"/" shortcut**: pressing `/` (outside a text field) focuses the search box
+- **Export CSV**: header button downloads the current filtered view (name, id, provider, tier, price, context, max output, release, modalities, description); disabled when the result set is empty
+- **CSS tooltips**: icon-only header/sidebar buttons reveal labels via `data-tooltip`
+- **SEO/meta**: descriptive title, description, `theme-color` for both schemes, and Open Graph tags
+
+### Re-audit fixes
+
+- **Monospace font restored**: JetBrains Mono (used in code IDs, compare table, modality chips) loads via `<link>` in `index.html` after the `@import` removal
+- **Collapsed-sidebar tooltip no longer clipped**: the rail tooltip points right (`overflow: visible` on the collapsed sidebar) so it isn't cut off by `overflow: hidden`
+- **Light-theme green contrast**: `--green` darkened to `#047857` (5.25:1 on light bg) so Free badges and best-value highlights pass WCAG AA
+- **Skip-link focus**: the `models-panel` target is now focusable (`tabindex="-1"`) so the skip link actually moves focus
+- **Light-theme muted contrast**: `--text-muted` darkened to `#636a75` so sidebar/section/label text reaches ≥4.87:1 (was 4.31–4.40, found by the new automated axe run)
+- **Modal focus-restore fixed**: `useFocusTrap` now captures the previously focused element *before* moving focus into the dialog (it was captured too late in `useModal`, so closing a modal did not return focus to the trigger)
+- **English-only decision**: the UI stays English — the standard for developer tools — instead of adding an i18n layer; no localization scope for now
+
+### Engineering
+
+- **Continuous integration**: `.github/workflows/ci.yml` runs lint, type-check + build, unit tests, and Playwright e2e on push/PR (with Playwright report artifact on failure)
+- **Automated accessibility**: `@axe-core/playwright` suite asserts zero critical/serious violations on the main page (light + dark), the alternatives modal, and the compare modal
+- **Build warning silenced**: `chunkSizeWarningLimit` raised to 250 kB (React vendor chunk is ~219 kB)
+
 ### Testing
 
-- **50 unit tests** (+12: `useExplorerData`, `useFilters`, provider-name search)
-- **15 E2E tests** (unchanged, all passing)
+- **62 unit tests** (+12: `useTheme` ×7, `useModal` ×5, incl. focus trap restore/wrap)
+- **26 E2E tests** (+11: theme cycling + persistence, sidebar collapse + persistence, CSV export content, skip-link focus, `/` shortcut, copy-link clipboard, last-updated indicator, and 4 axe a11y checks)
 
 ## [1.1.0] — 2026-08-01
 

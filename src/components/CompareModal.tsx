@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
 import type { Model, Provider } from '../schemas/api';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useModal } from '../hooks/useModal';
 import { formatCtx, formatReleaseDate, formatCost } from '../utils/format';
 import { MODALITY_LABEL } from './ui/constants';
 import { IconClose } from './icons';
@@ -18,27 +17,8 @@ interface CompareModalProps {
 }
 
 export function CompareModal({ models, providers, getTier, getPrice, onClose, onRemove }: CompareModalProps) {
-  const dialogRef = useFocusTrap(true);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
+  const dialogRef = useModal(true, onClose);
   const providerNames = new Map(providers.map((p) => [p.provider_id, p.name]));
-
-  useEffect(() => {
-    previousActiveElement.current = document.activeElement as HTMLElement;
-    document.body.style.overflow = 'hidden';
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-      previousActiveElement.current?.focus();
-    };
-  }, [onClose]);
 
   if (models.length === 0) return null;
 

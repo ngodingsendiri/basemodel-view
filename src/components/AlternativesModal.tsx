@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Model, Alternative } from '../schemas/api';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useModal } from '../hooks/useModal';
 import { sanitizeModelName, sanitizeModelId, sanitizeReason } from '../utils/sanitize';
 import { formatCost } from '../utils/format';
 import { IconClose } from './icons';
@@ -30,15 +30,20 @@ function CopyIDBtn({ id }: { id: string }) {
     );
   };
   return (
-    <button
-      type="button"
-      onClick={copy}
-      aria-label={copied ? 'Copied' : 'Copy model ID'}
-      title={copied ? 'Copied' : 'Copy model ID'}
-      className="copy-btn"
-    >
-      {copied ? 'copied' : 'copy'}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? 'Copied' : 'Copy model ID'}
+        title={copied ? 'Copied' : 'Copy model ID'}
+        className="copy-btn"
+      >
+        {copied ? 'copied' : 'copy'}
+      </button>
+      <span role="status" className="visually-hidden" aria-live="polite">
+        {copied ? 'Copied model ID' : ''}
+      </span>
+    </>
   );
 }
 
@@ -59,8 +64,7 @@ function fallbackCopy(text: string): boolean {
 }
 
 export function AlternativesModal({ isOpen, onClose, originalModel, alternatives, onSelectAlternative, getPrice }: AlternativesModalProps) {
-  const modalRef = useFocusTrap(isOpen && !!originalModel);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
+  const modalRef = useModal(isOpen && !!originalModel, onClose);
   const [showAll, setShowAll] = useState(false);
   const visibleAlternatives = showAll ? alternatives : alternatives.slice(0, INITIAL_VISIBLE);
   const hiddenCount = alternatives.length - visibleAlternatives.length;
@@ -68,30 +72,6 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
   useEffect(() => {
     setShowAll(false);
   }, [originalModel?.model_id]);
-
-  useEffect(() => {
-    if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      previousActiveElement.current?.focus();
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isOpen) return;
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   if (!isOpen || !originalModel) return null;
 
@@ -196,6 +176,15 @@ export function AlternativesModal({ isOpen, onClose, originalModel, alternatives
                   onClick={() => setShowAll(true)}
                 >
                   Show {hiddenCount} more
+                </button>
+              )}
+              {showAll && alternatives.length > INITIAL_VISIBLE && (
+                <button
+                  type="button"
+                  className="alt-show-more"
+                  onClick={() => setShowAll(false)}
+                >
+                  Show less
                 </button>
               )}
             </>

@@ -26,7 +26,7 @@
   position: sticky;
   left: 0;
   z-index: 1;
-  background: #111113;
+  background: var(--bg-elevated);
   border-right: 1px solid var(--border-soft);
 }
 
@@ -64,16 +64,11 @@
   font-size: var(--fs-xs);
   font-family: inherit;
   cursor: pointer;
-  padding: 2px 8px;
+  padding: 6px 10px;
   transition: color 0.15s, border-color 0.15s;
 }
 
 .compare-th-remove:hover {
   color: var(--text-primary);
-  border-color: rgba(255,255,255,0.25);
-}
-
-.compare-th-remove:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--accent);
+  border-color: var(--border-hover);
 }

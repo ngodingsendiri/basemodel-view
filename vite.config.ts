@@ -26,7 +26,7 @@ export default defineConfig({
         },
       },
     },
-    chunkSizeWarningLimit: 200,
+    chunkSizeWarningLimit: 250,
     cssCodeSplit: true,
   },
 });

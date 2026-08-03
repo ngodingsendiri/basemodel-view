@@ -1,75 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-
-const API_BASE = 'https://raw.githubusercontent.com/ngodingsendiri/BaseModel/main/dist';
-const CDN_BASE = 'https://cdn.jsdelivr.net/gh/ngodingsendiri/BaseModel@main/dist';
-
-const mockModels = {
-  models: [
-    {
-      model_id: 'testco/model-1',
-      name: 'Test Alpha Model',
-      provider_id: 'testco',
-      context_window: 4096,
-      max_output_tokens: 2048,
-      release_date: '2024-01-01T00:00:00Z',
-      modality: ['text'],
-      description: 'A test model',
-    },
-    {
-      model_id: 'otherco/model-2',
-      name: 'Beta Model Two',
-      provider_id: 'otherco',
-      context_window: 128000,
-      release_date: '2024-06-01T00:00:00Z',
-      modality: ['text', 'code'],
-      description: 'Another test model',
-    },
-  ],
-};
-
-const mockProviders = {
-  providers: [
-    { provider_id: 'testco', name: 'Test Company' },
-    { provider_id: 'otherco', name: 'Other Company' },
-  ],
-};
-
-const mockIntelligence = {
-  intelligence: [
-    {
-      model_id: 'testco/model-1',
-      cost_tier: 'Free',
-      blended_cost_per_1m: 0,
-      alternatives: [
-        { model_id: 'otherco/model-2', name: 'Beta Model Two', reason: 'Cheaper per token' },
-        { model_id: 'testco/model-3', name: 'Gamma Model Three', reason: 'Similar capability' },
-        { model_id: 'testco/model-4', name: 'Delta Model Four', reason: 'Good balance' },
-        { model_id: 'testco/model-5', name: 'Epsilon Model Five', reason: 'Higher throughput' },
-        { model_id: 'testco/model-6', name: 'Zeta Model Six', reason: 'Lower latency' },
-      ],
-    },
-    {
-      model_id: 'otherco/model-2',
-      cost_tier: 'Premium',
-      blended_cost_per_1m: 10,
-      alternatives: [],
-    },
-  ],
-};
-
-function mockDataRoutes(page: Page) {
-  for (const base of [API_BASE, CDN_BASE]) {
-    page.route(`${base}/models.json`, (route) =>
-      route.fulfill({ json: mockModels })
-    );
-    page.route(`${base}/providers.json`, (route) =>
-      route.fulfill({ json: mockProviders })
-    );
-    page.route(`${base}/intelligence.json`, (route) =>
-      route.fulfill({ json: mockIntelligence })
-    );
-  }
-}
+import { test, expect } from '@playwright/test';
+import { mockDataRoutes } from './mockData';
 
 test.beforeEach(async ({ page }) => {
   mockDataRoutes(page);
@@ -225,4 +155,96 @@ test('shows Free pricing and highlights the best value in the compare table', as
   const dialog = page.getByRole('dialog');
   await expect(dialog.locator('td.compare-best', { hasText: 'Free' })).toBeVisible();
   await expect(dialog.getByRole('cell', { name: '128k tokens' })).toHaveClass(/compare-best/);
+});
+
+test('cycles the theme system -> light -> dark -> system and persists it', async ({ page }) => {
+  const themeBtn = page.getByRole('button', { name: /Switch light, dark, or system/ });
+
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /light|dark/);
+
+  await themeBtn.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+  await themeBtn.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+  await themeBtn.click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /light|dark/);
+
+  await themeBtn.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
+  await themeBtn.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});
+
+test('collapses the sidebar to an icon rail and persists it', async ({ page }) => {
+  await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+  await expect(page.locator('.sidebar')).toHaveClass(/sidebar--collapsed/);
+  await expect(page.getByRole('button', { name: 'Expand sidebar' })).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('.sidebar')).toHaveClass(/sidebar--collapsed/);
+
+  await page.getByRole('button', { name: 'Expand sidebar' }).click();
+  await expect(page.locator('.sidebar')).not.toHaveClass(/sidebar--collapsed/);
+  await expect(page.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
+});
+
+test('exports the filtered view as a CSV download', async ({ page }) => {
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: /Export CSV/ }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^basemodel-\d{4}-\d{2}-\d{2}\.csv$/);
+
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk as Buffer);
+  const content = Buffer.concat(chunks).toString('utf8');
+
+  expect(content).toContain('"Name"');
+  expect(content).toContain('"Test Alpha Model"');
+  expect(content).toContain('"Beta Model Two"');
+});
+
+test('skip link moves focus to the models panel', async ({ page }) => {
+  const skipLink = page.locator('.skip-link');
+  await expect(skipLink).not.toBeFocused();
+
+  await page.keyboard.press('Tab');
+  await expect(skipLink).toBeFocused();
+
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#models-panel')).toBeFocused();
+});
+
+test('"/" shortcut focuses the search box', async ({ page }) => {
+  await expect(page.getByText('Test Alpha Model')).toBeVisible();
+
+  // Dispatched in-page because Chromium intercepts a raw "/" press for its
+  // find-in-page quick find.
+  await page.evaluate(() => {
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true }));
+  });
+  await expect(page.locator('#search-input')).toBeFocused();
+});
+
+test('copy link button copies the filtered URL to the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-write', 'clipboard-read']);
+
+  await page.getByLabel('Filter models').fill('beta');
+  await expect(page).toHaveURL(/q=beta/);
+
+  await page.getByRole('button', { name: 'Copy link' }).click();
+  await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(new URL(copied).searchParams.get('q')).toBe('beta');
+});
+
+test('shows the last-updated timestamp once data loads', async ({ page }) => {
+  await expect(page.locator('.last-updated')).toContainText('Updated');
 });

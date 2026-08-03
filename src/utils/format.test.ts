@@ -37,12 +37,12 @@ describe('formatReleaseDate', () => {
 });
 
 describe('formatCost', () => {
-  it('returns Free for zero cost', () => {
-    expect(formatCost(0)).toBe('Free');
-  });
-
   it('returns em dash for unknown cost', () => {
     expect(formatCost(undefined)).toBe('—');
+  });
+
+  it('formats zero cost numerically', () => {
+    expect(formatCost(0)).toBe('$0.00');
   });
 
   it('formats whole-dollar costs', () => {

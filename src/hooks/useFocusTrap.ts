@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 export function useFocusTrap(enabled: boolean) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!enabled || !containerRef.current) return;
@@ -12,6 +13,10 @@ export function useFocusTrap(enabled: boolean) {
     );
     const firstElement = focusableElements[0];
     const lastElement = focusableElements[focusableElements.length - 1];
+
+    // Capture the trigger before focus moves into the dialog, so closing the
+    // modal can restore focus to it.
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
 
     function handleTab(e: KeyboardEvent) {
       if (e.key !== 'Tab') return;
@@ -33,6 +38,7 @@ export function useFocusTrap(enabled: boolean) {
 
     return () => {
       container.removeEventListener('keydown', handleTab);
+      previouslyFocusedRef.current?.focus();
     };
   }, [enabled]);
 

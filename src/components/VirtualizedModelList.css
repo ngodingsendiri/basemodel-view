@@ -62,10 +62,5 @@
 
 .empty-state-action:hover {
   background: var(--bg-hover);
-  border-color: rgba(255,255,255,0.2);
-}
-
-.empty-state-action:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--accent);
+  border-color: var(--border-hover);
 }
