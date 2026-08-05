@@ -3,26 +3,28 @@ import type { Page } from '@playwright/test';
 export const API_BASE = 'https://raw.githubusercontent.com/ngodingsendiri/BaseModel/main/dist';
 export const CDN_BASE = 'https://cdn.jsdelivr.net/gh/ngodingsendiri/BaseModel@main/dist';
 
+// Canonical (deduplicated) models — provider serves live in mockOfferings.
 export const mockModels = {
   models: [
     {
-      model_id: 'testco/model-1',
+      model_id: 'model-1',
       name: 'Test Alpha Model',
-      provider_id: 'testco',
-      context_window: 4096,
-      max_output_tokens: 2048,
-      release_date: '2024-01-01T00:00:00Z',
-      modality: ['text'],
       description: 'A test model',
+      release_date: '2024-01-01T00:00:00Z',
+      context_window: 4096,
+      modality: ['text'],
+      aliases: ['alpha-one'],
+      offering_ids: ['testco/model-1', 'otherco/model-1'],
+      quality: { score: 88.5, benchmark_count: 3, categories: ['code'], sources: ['mirror'] },
     },
     {
-      model_id: 'otherco/model-2',
+      model_id: 'model-2',
       name: 'Beta Model Two',
-      provider_id: 'otherco',
-      context_window: 128000,
-      release_date: '2024-06-01T00:00:00Z',
-      modality: ['text', 'code'],
       description: 'Another test model',
+      release_date: '2024-06-01T00:00:00Z',
+      context_window: 128000,
+      modality: ['text', 'code'],
+      offering_ids: ['otherco/model-2'],
     },
   ],
 };
@@ -34,27 +36,67 @@ export const mockProviders = {
   ],
 };
 
-export const mockIntelligence = {
-  intelligence: [
+export const mockOfferings = {
+  offerings: [
     {
-      model_id: 'testco/model-1',
+      offering_id: 'testco/model-1',
+      model_id: 'model-1',
+      provider_id: 'testco',
+      status: 'active',
       cost_tier: 'Free',
       blended_cost_per_1m: 0,
-      alternatives: [
-        { model_id: 'otherco/model-2', name: 'Beta Model Two', reason: 'Cheaper per token' },
-        { model_id: 'testco/model-3', name: 'Gamma Model Three', reason: 'Similar capability' },
-        { model_id: 'testco/model-4', name: 'Delta Model Four', reason: 'Good balance' },
-        { model_id: 'testco/model-5', name: 'Epsilon Model Five', reason: 'Higher throughput' },
-        { model_id: 'testco/model-6', name: 'Zeta Model Six', reason: 'Lower latency' },
-      ],
+      is_cheapest: true,
+    },
+    // Unpriced second provider — exercises the "Available Providers" list.
+    {
+      offering_id: 'otherco/model-1',
+      model_id: 'model-1',
+      provider_id: 'otherco',
+      status: 'active',
     },
     {
-      model_id: 'otherco/model-2',
+      offering_id: 'otherco/model-2',
+      model_id: 'model-2',
+      provider_id: 'otherco',
+      status: 'active',
       cost_tier: 'Premium',
       blended_cost_per_1m: 10,
-      alternatives: [],
     },
   ],
+};
+
+export const mockRanking = {
+  ranking: [
+    {
+      model_id: 'model-1',
+      quality_score: 88.5,
+      benchmark_count: 3,
+      categories: ['code'],
+      cheapest_offering: 'testco/model-1',
+      cheapest_provider: 'testco',
+      blended_cost_per_1m: 0,
+      pareto_optimal: true,
+    },
+    {
+      model_id: 'model-2',
+      quality_score: 70,
+      benchmark_count: 2,
+      categories: ['code'],
+      cheapest_offering: 'otherco/model-2',
+      cheapest_provider: 'otherco',
+      blended_cost_per_1m: 10,
+      pareto_optimal: false,
+    },
+  ],
+};
+
+// Registry delta feed — ids are offering ids; "otherco/model-1" puts the New
+// badge on the canonical model-1.
+export const mockChanges = {
+  generated_at: '2026-08-01T00:00:00Z',
+  added: ['otherco/model-1'],
+  removed: [],
+  status_changed: [],
 };
 
 // Leaderboard ids use the model name suffix (mirror style) so they exercise
@@ -86,14 +128,20 @@ export const mockBenchmarks = {
 
 export function mockDataRoutes(page: Page) {
   for (const base of [API_BASE, CDN_BASE]) {
-    page.route(`${base}/models.json`, (route) =>
+    page.route(`${base}/v2/models.json`, (route) =>
       route.fulfill({ json: mockModels })
     );
     page.route(`${base}/providers.json`, (route) =>
       route.fulfill({ json: mockProviders })
     );
-    page.route(`${base}/intelligence.json`, (route) =>
-      route.fulfill({ json: mockIntelligence })
+    page.route(`${base}/v2/offerings.json`, (route) =>
+      route.fulfill({ json: mockOfferings })
+    );
+    page.route(`${base}/v2/intelligence.json`, (route) =>
+      route.fulfill({ json: mockRanking })
+    );
+    page.route(`${base}/changes.json`, (route) =>
+      route.fulfill({ json: mockChanges })
     );
     page.route(`${base}/benchmarks.json`, (route) =>
       route.fulfill({ json: mockBenchmarks })

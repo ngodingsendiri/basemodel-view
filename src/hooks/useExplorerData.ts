@@ -1,5 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { IntelligenceRecord, ExplorerData, Benchmark, BenchmarkScore } from '../schemas/api';
+import type {
+  CanonicalModel,
+  Offering,
+  RankingEntry,
+  ChangesFeed,
+  ExplorerData,
+  Benchmark,
+  BenchmarkScore,
+} from '../schemas/api';
 import type { ModelId, ProviderId } from '../domain/branded';
 import { useModelRepository, useModelService } from '../context/modelRegistry/useModelRegistry';
 import { reportError } from '../utils/errorReporting';
@@ -9,9 +17,20 @@ export interface BenchmarkSummaryEntry {
   count: number;
 }
 
+/** Resolved economics for one canonical model across all its offerings. */
+export interface ModelPricing {
+  /** Cheapest known blended price per 1M tokens; 0 when free. */
+  price?: number;
+  /** Cost tier of the offering driving the displayed price. */
+  tier: string;
+  /** Offering id the price comes from (undefined when unknown). */
+  offering_id?: string;
+}
+
 export interface ExplorerDataState {
   data: ExplorerData | null;
-  intelligenceRecords: IntelligenceRecord[];
+  ranking: RankingEntry[];
+  changes: ChangesFeed | null;
   benchmarkRecords: Benchmark[];
   /** catalog model id -> benchmark name -> { score, rank } (rank 1 = best). */
   benchmarksByModel: ReadonlyMap<ModelId, ReadonlyMap<string, BenchmarkScore>>;
@@ -22,18 +41,53 @@ export interface ExplorerDataState {
   lastUpdated: number | null;
   retryCount: number;
   retry: () => void;
-  modelsById: ReadonlyMap<ModelId, ExplorerData['models'][number]>;
-  intelligenceByModel: ReadonlyMap<ModelId, IntelligenceRecord>;
+  modelsById: ReadonlyMap<ModelId, CanonicalModel>;
+  /** Canonical model -> all provider offerings serving it. */
+  offeringsByModel: ReadonlyMap<ModelId, Offering[]>;
+  /** Canonical model -> resolved price/tier across offerings. */
+  pricingByModel: ReadonlyMap<ModelId, ModelPricing>;
+  /** Canonical model ids served by each provider (sidebar counts + filter). */
+  modelIdsByProvider: ReadonlyMap<ProviderId, ReadonlySet<ModelId>>;
+  /** Pareto ranking entry per canonical model. */
+  rankingByModel: ReadonlyMap<ModelId, RankingEntry>;
+  /** Offering id -> canonical model id (legacy deep-link support). */
+  modelByOfferingId: ReadonlyMap<string, ModelId>;
+  /** Canonical models that gained an offering in the latest registry run. */
+  newModelIds: ReadonlySet<ModelId>;
   providerCounts: ReadonlyMap<ProviderId, number>;
 }
 
 /** Last path segment of a model id, lowercased — used to match leaderboard
- * ids (e.g. "claude-fable-5" or "meta-llama/Llama-4-...") to catalog ids
- * (e.g. "openrouter/claude-fable-5"). */
+ * ids (e.g. "claude-fable-5" or "meta-llama/Llama-4-...") to catalog ids. */
 function lastSegment(id: string): string {
   const slash = id.lastIndexOf('/');
   const segment = slash === -1 ? id : id.slice(slash + 1);
   return segment.toLowerCase();
+}
+
+/** Resolve the displayed price/tier of a canonical model from its offerings.
+ * Prefers the cheapest priced offering; falls back to a Free offering; else
+ * Unknown. */
+function resolvePricing(offerings: Offering[]): ModelPricing {
+  let cheapest: Offering | undefined;
+  let freeOffering: Offering | undefined;
+  for (const offering of offerings) {
+    const price = offering.blended_cost_per_1m;
+    if (price != null && price > 0) {
+      if (!cheapest || price < (cheapest.blended_cost_per_1m ?? Infinity)) cheapest = offering;
+    } else if (!freeOffering && offering.cost_tier === 'Free') {
+      freeOffering = offering;
+    }
+  }
+  if (cheapest) {
+    return {
+      price: cheapest.blended_cost_per_1m,
+      tier: cheapest.cost_tier ?? 'Unknown',
+      offering_id: cheapest.offering_id,
+    };
+  }
+  if (freeOffering) return { price: 0, tier: 'Free', offering_id: freeOffering.offering_id };
+  return { tier: 'Unknown' };
 }
 
 export function useExplorerData(): ExplorerDataState {
@@ -41,7 +95,8 @@ export function useExplorerData(): ExplorerDataState {
   const repository = useModelRepository();
 
   const [data, setData] = useState<ExplorerData | null>(null);
-  const [intelligenceRecords, setIntelligenceRecords] = useState<IntelligenceRecord[]>([]);
+  const [ranking, setRanking] = useState<RankingEntry[]>([]);
+  const [changes, setChanges] = useState<ChangesFeed | null>(null);
   const [benchmarkRecords, setBenchmarkRecords] = useState<Benchmark[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,42 +111,87 @@ export function useExplorerData(): ExplorerDataState {
   }, [data]);
 
   const modelsById = useMemo(() => {
-    const map = new Map<ModelId, ExplorerData['models'][number]>();
+    const map = new Map<ModelId, CanonicalModel>();
     for (const model of data?.models ?? []) {
       map.set(model.model_id, model);
     }
     return map;
   }, [data]);
 
-  const intelligenceByModel = useMemo(() => {
-    const map = new Map<ModelId, IntelligenceRecord>();
-    for (const record of intelligenceRecords) {
-      map.set(record.model_id, record);
+  const offeringsByModel = useMemo(() => {
+    const map = new Map<ModelId, Offering[]>();
+    for (const offering of data?.offerings ?? []) {
+      const list = map.get(offering.model_id) ?? [];
+      list.push(offering);
+      map.set(offering.model_id, list);
     }
     return map;
-  }, [intelligenceRecords]);
+  }, [data]);
+
+  const pricingByModel = useMemo(() => {
+    const map = new Map<ModelId, ModelPricing>();
+    for (const [id, offerings] of offeringsByModel) {
+      map.set(id, resolvePricing(offerings));
+    }
+    return map;
+  }, [offeringsByModel]);
+
+  const modelIdsByProvider = useMemo(() => {
+    const map = new Map<ProviderId, Set<ModelId>>();
+    for (const offering of data?.offerings ?? []) {
+      const set = map.get(offering.provider_id) ?? new Set<ModelId>();
+      set.add(offering.model_id);
+      map.set(offering.provider_id, set);
+    }
+    return map;
+  }, [data]);
 
   const providerCounts = useMemo(() => {
     const counts = new Map<ProviderId, number>();
-    for (const model of data?.models ?? []) {
-      counts.set(model.provider_id, (counts.get(model.provider_id) ?? 0) + 1);
-    }
+    for (const [pid, ids] of modelIdsByProvider) counts.set(pid, ids.size);
     return counts;
+  }, [modelIdsByProvider]);
+
+  const rankingByModel = useMemo(() => {
+    const map = new Map<ModelId, RankingEntry>();
+    for (const entry of ranking) map.set(entry.model_id, entry);
+    return map;
+  }, [ranking]);
+
+  const modelByOfferingId = useMemo(() => {
+    const map = new Map<string, ModelId>();
+    for (const offering of data?.offerings ?? []) {
+      map.set(offering.offering_id, offering.model_id);
+    }
+    return map;
   }, [data]);
 
-  // Benchmark records are matched to catalog models by last path segment and
-  // ranked per benchmark (score desc; rank 1 = best). Benchmarks with no
-  // catalog match are dropped.
+  // changes.json lists offering ids; surface a "New" badge on the canonical
+  // model that gained the offering.
+  const newModelIds = useMemo(() => {
+    const set = new Set<ModelId>();
+    for (const offeringId of changes?.added ?? []) {
+      const modelId = modelByOfferingId.get(offeringId);
+      if (modelId) set.add(modelId);
+    }
+    return set;
+  }, [changes, modelByOfferingId]);
+
+  // Benchmark records are matched to catalog models by last path segment of
+  // the model id or any alias, and ranked per benchmark (score desc; rank 1
+  // = best). Benchmarks with no catalog match are dropped.
   const benchmarksByModel = useMemo<ReadonlyMap<ModelId, ReadonlyMap<string, BenchmarkScore>>>(() => {
     const map = new Map<ModelId, Map<string, BenchmarkScore>>();
     if (!data || benchmarkRecords.length === 0) return map;
 
     const bySegment = new Map<string, ModelId[]>();
     for (const model of data.models) {
-      const segment = lastSegment(model.model_id);
-      const list = bySegment.get(segment) ?? [];
-      list.push(model.model_id);
-      bySegment.set(segment, list);
+      const segments = [lastSegment(model.model_id), ...model.aliases.map(lastSegment)];
+      for (const segment of new Set(segments)) {
+        const list = bySegment.get(segment) ?? [];
+        list.push(model.model_id);
+        bySegment.set(segment, list);
+      }
     }
 
     // Group best score per (benchmark, catalog model).
@@ -147,11 +247,13 @@ export function useExplorerData(): ExplorerDataState {
       if (isRetry) setLoading(true);
       setError(null);
 
-      // Graceful degradation: models + providers are required, intelligence
-      // and benchmarks are optional. Their failures keep the catalog usable.
-      const [explorerResult, intelResult, benchResult] = await Promise.allSettled([
+      // Graceful degradation: models + providers + offerings are required;
+      // ranking, changes and benchmarks are optional enhancements whose
+      // failures keep the catalog usable.
+      const [explorerResult, rankingResult, changesResult, benchResult] = await Promise.allSettled([
         service.getExplorerData(),
-        service.getIntelligenceRecords(),
+        service.getRanking(),
+        service.getChanges(),
         service.getBenchmarkRecords(),
       ]);
 
@@ -162,14 +264,19 @@ export function useExplorerData(): ExplorerDataState {
       const explorerData = explorerResult.value;
       const knownModelIds = new Set(explorerData.models.map((m) => m.model_id));
 
-      let validIntel: IntelligenceRecord[] = [];
-      if (intelResult.status === 'fulfilled') {
-        validIntel = intelResult.value.filter((i) => knownModelIds.has(i.model_id));
+      let validRanking: RankingEntry[] = [];
+      if (rankingResult.status === 'fulfilled') {
+        validRanking = rankingResult.value.filter((r) => knownModelIds.has(r.model_id));
       } else {
-        // Intelligence unavailable: keep any records still referencing known
-        // models so the catalog degrades gracefully.
-        reportError(intelResult.reason);
-        setIntelligenceRecords((prev) => prev.filter((i) => knownModelIds.has(i.model_id)));
+        reportError(rankingResult.reason);
+        setRanking((prev) => prev.filter((r) => knownModelIds.has(r.model_id)));
+      }
+
+      let validChanges: ChangesFeed | null = null;
+      if (changesResult.status === 'fulfilled') {
+        validChanges = changesResult.value;
+      } else {
+        reportError(changesResult.reason);
       }
 
       let validBench: Benchmark[] = [];
@@ -183,13 +290,15 @@ export function useExplorerData(): ExplorerDataState {
       }
 
       setData(explorerData);
-      setIntelligenceRecords(validIntel);
+      setRanking(validRanking);
+      setChanges(validChanges);
       setBenchmarkRecords(validBench);
       setLastUpdated(Date.now());
 
       repository.writeCache({
         data: explorerData,
-        intelligenceRecords: validIntel,
+        ranking: validRanking,
+        changes: validChanges,
         benchmarkRecords: validBench,
         timestamp: Date.now(),
       });
@@ -211,7 +320,8 @@ export function useExplorerData(): ExplorerDataState {
     const cached = repository.getCachedData(true);
     if (cached) {
       setData(cached.data);
-      setIntelligenceRecords(cached.intelligenceRecords ?? []);
+      setRanking(cached.ranking ?? []);
+      setChanges(cached.changes ?? null);
       setBenchmarkRecords(cached.benchmarkRecords ?? []);
       setLastUpdated(cached.timestamp);
       setLoading(false);
@@ -229,7 +339,8 @@ export function useExplorerData(): ExplorerDataState {
 
   return {
     data,
-    intelligenceRecords,
+    ranking,
+    changes,
     benchmarkRecords,
     benchmarksByModel,
     benchmarkSummary,
@@ -239,7 +350,12 @@ export function useExplorerData(): ExplorerDataState {
     retryCount,
     retry,
     modelsById,
-    intelligenceByModel,
+    offeringsByModel,
+    pricingByModel,
+    modelIdsByProvider,
+    rankingByModel,
+    modelByOfferingId,
+    newModelIds,
     providerCounts,
   };
 }

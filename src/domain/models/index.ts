@@ -1,9 +1,19 @@
-import type { Model, Provider, ExplorerData, IntelligenceRecord, Benchmark } from '../../schemas/api';
+import type {
+  CanonicalModel,
+  Provider,
+  Offering,
+  ExplorerData,
+  RankingEntry,
+  ChangesFeed,
+  Benchmark,
+} from '../../schemas/api';
 
 export interface ModelRepository {
-  fetchModels(): Promise<Model[]>;
+  fetchCanonicalModels(): Promise<CanonicalModel[]>;
   fetchProviders(): Promise<Provider[]>;
-  fetchIntelligence(): Promise<IntelligenceRecord[]>;
+  fetchOfferings(): Promise<Offering[]>;
+  fetchRanking(): Promise<RankingEntry[]>;
+  fetchChanges(): Promise<ChangesFeed>;
   fetchBenchmarks(): Promise<Benchmark[]>;
   /**
    * Returns a cached payload, or null when empty. When `ignoreTTL` is true,
@@ -20,13 +30,15 @@ export interface ModelRepository {
 
 export interface CachedData {
   data: ExplorerData;
-  intelligenceRecords: IntelligenceRecord[];
+  ranking: RankingEntry[];
+  changes: ChangesFeed | null;
   benchmarkRecords: Benchmark[];
   timestamp: number;
 }
 
 export interface ModelService {
   getExplorerData(): Promise<ExplorerData>;
-  getIntelligenceRecords(): Promise<IntelligenceRecord[]>;
+  getRanking(): Promise<RankingEntry[]>;
+  getChanges(): Promise<ChangesFeed>;
   getBenchmarkRecords(): Promise<Benchmark[]>;
 }

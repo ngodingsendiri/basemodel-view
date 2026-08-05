@@ -1,4 +1,9 @@
-import type { IntelligenceRecord, ExplorerData, Benchmark } from '../../schemas/api';
+import type {
+  ExplorerData,
+  RankingEntry,
+  ChangesFeed,
+  Benchmark,
+} from '../../schemas/api';
 import type { ModelRepository, ModelService } from '.';
 
 export class ModelServiceImpl implements ModelService {
@@ -13,15 +18,20 @@ export class ModelServiceImpl implements ModelService {
   }
 
   async getExplorerData(): Promise<ExplorerData> {
-    const [models, providers] = await Promise.all([
-      this.repository.fetchModels(),
+    const [models, providers, offerings] = await Promise.all([
+      this.repository.fetchCanonicalModels(),
       this.repository.fetchProviders(),
+      this.repository.fetchOfferings(),
     ]);
-    return { models, providers };
+    return { models, providers, offerings };
   }
 
-  async getIntelligenceRecords(): Promise<IntelligenceRecord[]> {
-    return this.repository.fetchIntelligence();
+  async getRanking(): Promise<RankingEntry[]> {
+    return this.repository.fetchRanking();
+  }
+
+  async getChanges(): Promise<ChangesFeed> {
+    return this.repository.fetchChanges();
   }
 
   async getBenchmarkRecords(): Promise<Benchmark[]> {

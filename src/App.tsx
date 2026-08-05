@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
-import { AlternativesModal } from './components/AlternativesModal';
+import { ModelDetailModal } from './components/ModelDetailModal';
 import { CompareBar } from './components/CompareBar';
 import { CompareModal } from './components/CompareModal';
 import { VirtualizedModelList } from './components/VirtualizedModelList';
@@ -13,7 +13,7 @@ import type { ModelId } from './domain/branded';
 import type { SortKey } from './types/filters';
 import { rankBenchmarkFromKey } from './types/filters';
 
-import { useAlternativesModal } from './hooks/useAlternativesModal';
+import { useModelDetailModal } from './hooks/useModelDetailModal';
 import { useCompare } from './hooks/useCompare';
 import { useExplorerData } from './hooks/useExplorerData';
 import { useFilters } from './hooks/useFilters';
@@ -82,7 +82,12 @@ export default function App() {
     retryCount,
     retry,
     modelsById,
-    intelligenceByModel,
+    offeringsByModel,
+    pricingByModel,
+    modelIdsByProvider,
+    rankingByModel,
+    modelByOfferingId,
+    newModelIds,
     providerCounts,
     benchmarksByModel,
     benchmarkSummary,
@@ -195,7 +200,32 @@ export default function App() {
     return () => mq.removeEventListener('change', onChange);
   }, [sidebarMobileOpen]);
 
-  const { isOpen, originalModel, selectedAlternatives, open, close } = useAlternativesModal();
+  // Keep the sidebar header's height in lockstep with the content header so
+  // their divider lines stay perfectly aligned at every window size (the
+  // content header grows to two rows on compact widths).
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 769px)');
+    const el = document.querySelector<HTMLElement>('.content-header');
+    if (!el || !mq.matches) return;
+    const apply = () => {
+      const h = el.offsetHeight;
+      if (h > 0) document.documentElement.style.setProperty('--header-h', `${h}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    const onMq = (e: MediaQueryListEvent) => {
+      if (e.matches) apply();
+      else document.documentElement.style.removeProperty('--header-h');
+    };
+    mq.addEventListener('change', onMq);
+    return () => {
+      ro.disconnect();
+      mq.removeEventListener('change', onMq);
+    };
+  }, [loading, error, data]);
+
+  const { isOpen, model, offerings, open, close } = useModelDetailModal();
 
   // Keep the `alt` URL param in sync with modal visibility (deep-linkable modal).
   // Opening pushes a history entry so the Back button returns to the list and
@@ -217,8 +247,8 @@ export default function App() {
       return;
     }
 
-    const targetAlt = isOpen && originalModel ? originalModel.model_id : null;
-    const shouldDelete = !isOpen && originalModel;
+    const targetAlt = isOpen && model ? model.model_id : null;
+    const shouldDelete = !isOpen && model;
     if (!shouldDelete && targetAlt === currentAlt && lastAltParamRef.current === currentAlt) {
       lastAltParamRef.current = currentAlt;
       return; // already in sync
@@ -229,54 +259,57 @@ export default function App() {
     lastAltParamRef.current = currentAlt;
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
-      if (isOpen && originalModel) params.set('alt', originalModel.model_id);
-      else if (!isOpen && originalModel) params.delete('alt');
+      if (isOpen && model) params.set('alt', model.model_id);
+      else if (!isOpen && model) params.delete('alt');
       return params;
     }, { replace: !pushHistory });
-  }, [isOpen, originalModel, searchParams, setSearchParams, close]);
+  }, [isOpen, model, searchParams, setSearchParams, close]);
 
   // Open the modal from an `alt` deep link once the model data is available.
+  // Accepts canonical model ids and legacy offering ids (provider/slug).
   // Skipped when the URL matches the already-referenced model, so an explicit
   // close (which clears the param) is never immediately overridden.
   useEffect(() => {
     const altId = searchParams.get('alt');
     if (!altId || isOpen) return;
-    if (altId === originalModel?.model_id) return;
-    const model = modelsById.get(altId as ModelId);
-    if (model) {
-      const intel = intelligenceByModel.get(model.model_id);
-      open(model, intel?.alternatives ?? []);
+    if (altId === model?.model_id) return;
+    const canonicalId = modelsById.has(altId as ModelId)
+      ? (altId as ModelId)
+      : modelByOfferingId.get(altId);
+    const target = canonicalId ? modelsById.get(canonicalId) : undefined;
+    if (target) {
+      open(target, offeringsByModel.get(target.model_id) ?? []);
     }
-  }, [searchParams, modelsById, intelligenceByModel, isOpen, originalModel, open]);
+  }, [searchParams, modelsById, modelByOfferingId, offeringsByModel, isOpen, model, open]);
 
   const handleModelClick = useCallback((modelId: string) => {
     const id = modelId as ModelId;
-    const model = modelsById.get(id);
-    if (model) {
-      const intel = intelligenceByModel.get(id);
-      open(model, intel?.alternatives ?? []);
+    const target = modelsById.get(id);
+    if (target) {
+      open(target, offeringsByModel.get(id) ?? []);
     }
-  }, [modelsById, intelligenceByModel, open]);
+  }, [modelsById, offeringsByModel, open]);
 
-  // Navigate to an alternative model's own details from inside the modal.
-  const handleSelectAlternative = useCallback((modelId: string) => {
-    const id = modelId as ModelId;
-    const model = modelsById.get(id);
-    if (!model) return;
-    const intel = intelligenceByModel.get(id);
-    open(model, intel?.alternatives ?? []);
-  }, [modelsById, intelligenceByModel, open]);
-
-  const { filtered, getTierForModel, getPriceForModel, getBenchmarkScore, rankBenchmark } = useFilteredModels({
+  const { filtered, getTierForModel, getPriceForModel, getProviderCount, getBenchmarkScore, rankBenchmark } = useFilteredModels({
     models: data?.models ?? [],
     providers: data?.providers ?? [],
-    intelligenceByModel,
+    offeringsByModel,
+    pricingByModel,
+    modelIdsByProvider,
+    rankingByModel,
     benchmarksByModel,
     selectedProviderId,
     searchQuery: debouncedSearchQuery,
     freeOnly,
     sortKey: effectiveSortKey,
   });
+
+  // Provider display names serving each canonical model (compare table).
+  const getProviderNames = useCallback((modelId: string): string[] => {
+    const nameById = new Map((data?.providers ?? []).map((p) => [p.provider_id, p.name]));
+    return (offeringsByModel.get(modelId as ModelId) ?? [])
+      .map((o) => nameById.get(o.provider_id) ?? o.provider_id);
+  }, [data?.providers, offeringsByModel]);
 
   const compareUrlSeed = useMemo<ModelId[]>(() => {
     const raw = searchParams.get('compare');
@@ -313,17 +346,16 @@ export default function App() {
 
   // Export the current (filtered) view to a CSV file.
   const exportCsv = useCallback(() => {
-    const providerName = new Map((data?.providers ?? []).map((p) => [p.provider_id, p.name]));
-    const header = ['Name', 'Model ID', 'Provider', 'Tier', 'Price per 1M', 'Context', 'Max Output', 'Release', 'Modalities', 'Description'];
+    const header = ['Name', 'Model ID', 'Providers', 'Tier', 'Cheapest per 1M', 'Quality', 'Context', 'Release', 'Modalities', 'Description'];
     const esc = (v: string | number | undefined | null) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const rows = filtered.map((m) => [
       esc(m.name),
       esc(m.model_id),
-      esc(providerName.get(m.provider_id) ?? m.provider_id),
+      esc(getProviderNames(m.model_id).join('; ')),
       esc(getTierForModel(m.model_id)),
       esc(getPriceForModel(m.model_id)),
+      esc(m.quality?.score),
       esc(m.context_window),
-      esc(m.max_output_tokens),
       esc(m.release_date),
       esc((m.modality ?? []).join(' ')),
       esc(m.description),
@@ -338,7 +370,7 @@ export default function App() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  }, [data?.providers, filtered, getTierForModel, getPriceForModel]);
+  }, [filtered, getProviderNames, getTierForModel, getPriceForModel]);
 
   // --- Loading skeleton (only when nothing to render yet) ---
   if (loading && !data) {
@@ -635,6 +667,7 @@ export default function App() {
                   onChange={(e) => setSortKey(e.target.value as SortKey)}
                 >
                   <option value="name">Name (A–Z)</option>
+                  <option value="quality">Quality: best first</option>
                   <option value="context">Context: largest</option>
                   <option value="date">Newest first</option>
                   <option value="price">Price: cheapest</option>
@@ -697,6 +730,9 @@ export default function App() {
               models={filtered}
               getTier={getTierForModel}
               getPrice={getPriceForModel}
+              getProviderCount={getProviderCount}
+              rankingByModel={rankingByModel}
+              newModelIds={newModelIds}
               rankBenchmark={rankBenchmark}
               getBenchmarkScore={getBenchmarkScore}
               compareSelected={compare.selected}
@@ -711,17 +747,16 @@ export default function App() {
       </main>
 
       <ErrorBoundary fallback={<ModalFallback onClose={close} />}>
-        <AlternativesModal
+        <ModelDetailModal
           isOpen={isOpen}
           onClose={close}
-          originalModel={originalModel}
-          alternatives={selectedAlternatives}
-          onSelectAlternative={handleSelectAlternative}
-          getPrice={getPriceForModel}
-          providerName={originalModel ? data.providers.find((p) => p.provider_id === originalModel.provider_id)?.name : undefined}
-          providerLink={originalModel ? PROVIDER_LINKS.get(originalModel.provider_id) : undefined}
-          tier={originalModel ? getTierForModel(originalModel.model_id) : undefined}
-          benchmarks={originalModel ? getBenchmarkScores(originalModel.model_id) : []}
+          model={model}
+          offerings={offerings}
+          providers={data.providers}
+          pricing={model ? pricingByModel.get(model.model_id) : undefined}
+          ranking={model ? rankingByModel.get(model.model_id) : undefined}
+          isNew={model ? newModelIds.has(model.model_id) : false}
+          benchmarks={model ? getBenchmarkScores(model.model_id) : []}
         />
       </ErrorBoundary>
 
@@ -739,7 +774,7 @@ export default function App() {
         <ErrorBoundary fallback={<ModalFallback onClose={() => setCompareOpen(false)} />}>
           <CompareModal
             models={compare.selectedModels}
-            providers={data.providers}
+            getProviderNames={getProviderNames}
             getTier={getTierForModel}
             getPrice={getPriceForModel}
             getBenchmarkScore={getBenchmarkScore}

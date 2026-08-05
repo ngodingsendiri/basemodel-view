@@ -8,7 +8,7 @@ BaseModel Explorer follows a layered architecture that separates concerns into d
 ┌─────────────────────────────────────────────────────┐
 │                   Presentation                       │
 │  App.tsx · Components · Hooks (useExplorerData,      │
-│  useFilters, useFilteredModels, useAlternativesModal) │
+│  useFilters, useFilteredModels, useModelDetailModal) │
 ├─────────────────────────────────────────────────────┤
 │                 Context (DI)                         │
 │  ModelRegistryProvider → ModelRegistryContext         │
@@ -21,7 +21,7 @@ BaseModel Explorer follows a layered architecture that separates concerns into d
 │                Infrastructure                        │
 │  GitHubModelRepository (fetch, retry, circuit        │
 │  breaker, cache, rate limiting, mirror fallback)     │
-│  Zod schemas (Model, Provider, IntelligenceRecord)   │
+│  Zod schemas (CanonicalModel, Offering, RankingEntry)│
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -32,7 +32,7 @@ App.tsx
   ├── useExplorerData()  → data loading (SWR, retry, lookup maps)
   ├── useFilters()       → filter state + URL sync
   ├── useFilteredModels() → pure filter/sort hook
-  ├── useAlternativesModal() → modal state hook
+  ├── useModelDetailModal() → modal state hook
   └── useCompare()       → compare selection state
 
 main.tsx
@@ -45,6 +45,16 @@ All dependencies flow inward: presentation → context → domain → infrastruc
 
 ## Data Flow
 
+The explorer consumes the **v2 pipeline datasets** from the BaseModel registry:
+
+| File | Content |
+|------|---------|
+| `v2/models.json` | Canonical (deduplicated) models — provider-less slugs, aliases, optional `quality` |
+| `v2/offerings.json` | Provider serves of canonical models — offering id `{provider}/{slug}`, cost tier, blended price |
+| `v2/intelligence.json` | Pareto ranking — quality score, cheapest offering, `pareto_optimal` flag |
+| `changes.json` | Registry delta feed (added/removed/status-changed offering ids) |
+| `providers.json` / `benchmarks.json` | Provider names and leaderboard records (v1) |
+
 ### 1. Initial Load (SWR Pattern)
 
 ```
@@ -52,11 +62,22 @@ App mounts
   → useExplorerData()
     → repository.getCachedData(ignoreTTL: true)  // serve stale cache instantly (SWR)
     → loadData()
-    → service.getExplorerData() + getIntelligenceRecords()   // Promise.allSettled
-    → graceful degradation: intelligence failure keeps catalog usable
-    → filter orphaned intelligence records
+    → Promise.allSettled([getExplorerData, getRanking, getChanges, getBenchmarkRecords])
+    → graceful degradation: ranking/changes/benchmarks failures keep the catalog usable
+    → ranking entries with unknown model ids are filtered out
     → repository.writeCache(newData)      // update cache for next load
 ```
+
+Derived lookup maps (all memoized in `useExplorerData`):
+
+- `modelsById` — canonical model lookup
+- `offeringsByModel` — canonical model → all provider offerings
+- `pricingByModel` — resolved price/tier per model (`resolvePricing`: cheapest priced offering, else Free offering, else Unknown)
+- `modelIdsByProvider` / `providerCounts` — sidebar counts + provider filter
+- `rankingByModel` — Pareto ranking entry per model
+- `modelByOfferingId` — offering id → canonical id (legacy deep-link support)
+- `newModelIds` — canonical models that gained an offering in `changes.added`
+- `benchmarksByModel` — leaderboard records matched by last path segment of model id or any alias
 
 ### 2. Filter Pipeline
 
@@ -64,10 +85,11 @@ App mounts
 User changes filter (provider, search, free-only, sort)
   → useFilters() updates state + URL params (functional update, debounce 150ms)
   → useFilteredModels receives new deps
-    → builds tierMap/priceMap (Map<ModelId, ...>) once per intelligenceByModel change
-    → filters: provider → free-only → search query (name, model id, provider name)
-    → sorts: name | context (desc) | date (desc) | price (asc)
-    → returns { filtered, getTierForModel, getPriceForModel }
+    → filters: provider (via modelIdsByProvider) → free-only (resolved tier)
+      → search query (name, canonical id, aliases, provider names serving the model)
+    → sorts: name | quality (desc, unscored last) | context (desc) | date (desc)
+      | price (asc) | rank:<benchmark> (score desc)
+    → returns { filtered, getTierForModel, getPriceForModel, getOfferingsForModel, getProviderCount }
   → VirtualizedModelList re-renders only visible rows
 ```
 
@@ -77,19 +99,19 @@ User changes filter (provider, search, free-only, sort)
 User clicks model card
   → handleModelClick(modelId)
     → looks up model in modelsById map (O(1))
-    → looks up intelligence in intelligenceByModel map (O(1))
-    → open(model, alternatives.slice(0, 3))
+    → looks up offerings in offeringsByModel map (O(1))
+    → open(model, offerings)
   → URL updated: ?alt=<model_id>
-  → AlternativesModal renders with focus trap
+  → ModelDetailModal renders with focus trap (quality, aliases, offerings table)
 
 User closes modal (Escape / overlay click)
   → close()
-  → setIsOpen(false), setSelectedAlternatives([])
+  → setIsOpen(false), setOfferings([])
   → URL param `alt` removed
-  → originalModel ref preserved (prevents stale re-open)
 
 Deep link: user navigates to ?alt=<model_id>
   → useEffect detects alt param
+  → resolves canonical ids directly; legacy offering ids (provider/slug) via modelByOfferingId
   → waits for model data to load
   → opens modal with matching model
 ```
@@ -144,10 +166,10 @@ Only active under failure pressure (`circuitFailureCount > 0`). When active, enf
 
 ### Cache
 
-- **Key**: `basemodel:explorer-data:v3`
+- **Key**: `basemodel:explorer-data:v5`
 - **TTL**: 10 minutes
 - **Storage**: localStorage (best-effort, quota errors ignored)
-- **Content**: `{ data: ExplorerData, intelligenceRecords: IntelligenceRecord[], timestamp: number }`
+- **Content**: `{ data: ExplorerData, ranking: RankingEntry[], changes: ChangesFeed | null, benchmarkRecords: Benchmark[], timestamp: number }`
 - **SWR reads**: `getCachedData(ignoreTTL: true)` serves stale cache instantly while a background refresh runs
 
 ## Error Boundaries
@@ -169,18 +191,14 @@ The app uses per-region error boundaries with a `resetKey` pattern:
 
 All external data is validated at the fetch boundary using Zod:
 
-- `ModelsResponseSchema` → `{ models: Model[] }`
+- `CanonicalModelsResponseSchema` → `{ models: CanonicalModel[] }`
 - `ProvidersResponseSchema` → `{ providers: Provider[] }`
-- `IntelligenceResponseSchema` → `{ intelligence: IntelligenceRecord[] }`
+- `OfferingsResponseSchema` → `{ offerings: Offering[] }`
+- `RankingResponseSchema` → `{ ranking: RankingEntry[] }`
+- `ChangesFeedSchema` → `{ generated_at?, added, removed, status_changed }`
+- `BenchmarksResponseSchema` → `{ benchmarks: Benchmark[] }`
 
-The `IntelligenceRecordSchema` includes a refinement that rejects self-referential alternatives:
-
-```ts
-.refine(
-  (record) => !record.alternatives.some((a) => a.model_id === record.model_id),
-  { message: 'Alternatives must not reference the same model as the record' }
-)
-```
+Schemas are deliberately lenient (`.default()` on optional collections and flags, unknown fields stripped) so additive pipeline changes never break the explorer.
 
 ## Text Rendering Safety
 
@@ -205,8 +223,8 @@ double-escaped legitimate data (e.g. `AT&T` rendered literally as `AT&amp;T`).
 
 ### Model Cards
 
-- Enter or Space: opens the alternatives modal
-- Cards have `role="button"` and `tabIndex={0}`
+- The card body is a real `<button>` hit area (`.model-card-hitarea`) — Enter/Space open the detail modal natively
+- Copy and compare actions are sibling buttons, so keyboard focus lands on each action separately
 
 ## Performance Optimizations
 
@@ -214,9 +232,9 @@ double-escaped legitimate data (e.g. `AT&T` rendered literally as `AT&amp;T`).
 |-------------|---------------|
 | Virtualized list | `@tanstack/react-virtual` with dynamic `measureElement` + `overscan: 5` |
 | Debounced search | `useDebouncedValue(searchQuery, 150)` — one recompute per 150ms |
-| Memoized tier map | `useMemo(() => Map<ModelId, tier>, [intelligenceByModel])` |
-| Memoized model lookup | `useMemo(() => Map<ModelId, Model>, [data])` |
-| Memoized provider counts | `useMemo(() => Map<ProviderId, count>, [data])` |
+| Memoized pricing map | `useMemo(() => Map<ModelId, ModelPricing>, [offeringsByModel])` |
+| Memoized model lookup | `useMemo(() => Map<ModelId, CanonicalModel>, [data])` |
+| Memoized provider counts | `useMemo(() => Map<ProviderId, count>, [modelIdsByProvider])` |
 | Functional URL updates | `setSearchParams(prev => ...)` avoids stale closure bugs |
 | Code splitting | Manual chunks: `vendor-react`, `vendor-virtual`, `vendor-zod`, `modal` |
 | CSS containment | `.virtualized-item` uses `position: absolute` for layout isolation |
@@ -225,14 +243,14 @@ double-escaped legitimate data (e.g. `AT&T` rendered literally as `AT&amp;T`).
 
 ```
 dist/
-  index.html                    1.64 kB
-  assets/index-*.css           20.78 kB  (gzip: 4.43 kB)
-  assets/rolldown-runtime-*.js  0.56 kB  (gzip: 0.36 kB)
-  assets/modal-*.js            15.00 kB  (gzip: 5.46 kB)
-  assets/vendor-*.js           25.19 kB  (gzip: 7.81 kB)
-  assets/index-*.js            35.45 kB  (gzip: 10.44 kB)
-  assets/vendor-zod-*.js       64.17 kB  (gzip: 17.30 kB)
-  assets/vendor-react-*.js    218.97 kB  (gzip: 70.16 kB)
+  index.html                    2.34 kB
+  assets/index-*.css           38.29 kB  (gzip: 7.14 kB)
+  assets/rolldown-runtime-*.js  0.58 kB  (gzip: 0.36 kB)
+  assets/modal-*.js            21.30 kB  (gzip: 7.25 kB)
+  assets/vendor-*.js           25.16 kB  (gzip: 7.80 kB)
+  assets/index-*.js            49.66 kB  (gzip: 14.34 kB)
+  assets/vendor-zod-*.js       64.60 kB  (gzip: 17.37 kB)
+  assets/vendor-react-*.js    215.48 kB  (gzip: 69.05 kB)
 ```
 
-Total gzipped: ~115 KB. The vendor-react chunk (70 KB gzipped) is the React runtime and is preloaded by default.
+Total gzipped: ~124 KB. The vendor-react chunk (69 KB gzipped) is the React runtime and is preloaded by default.

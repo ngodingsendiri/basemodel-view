@@ -8,12 +8,20 @@
 @import './components/SkeletonCard.css';
 @import './components/ModelCard.css';
 @import './components/VirtualizedModelList.css';
-@import './components/AlternativesModal.css';
+@import './components/ModelDetailModal.css';
 @import './components/CompareBar.css';
 @import './components/CompareModal.css';
 
 :root {
   color-scheme: dark;
+
+  /* Elastic root type: the whole UI (menus, cards, header) stretches and
+     shrinks smoothly when the window is resized. */
+  font-size: clamp(14px, 0.25vw + 13.5px, 17px);
+
+  /* Shared header height so the sidebar header and the content header stay
+     perfectly aligned (their divider lines line up). */
+  --header-h: 52px;
 
   /* Type scale */
   --fs-2xs: 0.6875rem;
@@ -370,8 +378,9 @@ body {
   align-items: center;
   column-gap: 16px;
   row-gap: 6px;
-  padding: 10px 16px;
+  padding: 10px clamp(12px, 2vw, 20px);
   border-bottom: 1px solid var(--border);
+  min-height: var(--header-h);
 }
 
 .header-left {
@@ -383,12 +392,21 @@ body {
 }
 
 /* Wide screens: title | centered search | actions in a single row. */
+/* Tablet/compact: the content header stacks (title+actions / search) so the
+   shared --header-h grows to keep both divider lines aligned. */
+@media (min-width: 769px) and (max-width: 1365px) {
+  :root {
+    /* Two-row header: 10px pad + 30px row + 6px gap + 30px row + 10px pad. */
+    --header-h: 86px;
+  }
+}
+
 @media (min-width: 1366px) {
   .content-header {
     grid-template-areas: "left search controls";
     grid-template-columns: auto minmax(0, 1fr) auto;
     row-gap: 0;
-    padding: 10px 20px;
+    padding: 10px clamp(20px, 3vw, 32px);
   }
   .header-left {
     align-items: baseline;
@@ -577,7 +595,7 @@ body {
   display: flex;
   align-items: center;
   width: 100%;
-  max-width: 640px;
+  max-width: clamp(260px, 34vw, 640px);
   justify-self: center;
 }
 
@@ -629,11 +647,11 @@ body {
 
 .content-body {
   flex: 1;
-  padding: 12px 16px;
+  padding: clamp(10px, 1.2vw, 16px) clamp(12px, 1.6vw, 20px);
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  gap: clamp(6px, 0.6vw, 10px);
   align-content: start;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;

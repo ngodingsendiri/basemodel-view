@@ -1,4 +1,4 @@
-import type { Model, Provider, BenchmarkScore } from '../schemas/api';
+import type { CanonicalModel, BenchmarkScore } from '../schemas/api';
 import { useModal } from '../hooks/useModal';
 import { formatCtx, formatReleaseDate, formatCost, displayModelName } from '../utils/format';
 import { MODALITY_LABEL, benchmarkLabel } from './ui/constants';
@@ -7,8 +7,9 @@ import { IconClose } from './icons';
 const compareTitleId = 'compare-modal-title';
 
 interface CompareModalProps {
-  models: Model[];
-  providers: Provider[];
+  models: CanonicalModel[];
+  /** Display names of the providers serving each model. */
+  getProviderNames?: (modelId: string) => string[];
   getTier: (modelId: string) => string;
   getPrice?: (modelId: string) => number | undefined;
   getBenchmarkScore?: (modelId: string, name: string) => BenchmarkScore | undefined;
@@ -19,7 +20,7 @@ interface CompareModalProps {
 
 export function CompareModal({
   models,
-  providers,
+  getProviderNames,
   getTier,
   getPrice,
   getBenchmarkScore,
@@ -28,21 +29,23 @@ export function CompareModal({
   onRemove,
 }: CompareModalProps) {
   const dialogRef = useModal(true, onClose);
-  const providerNames = new Map(providers.map((p) => [p.provider_id, p.name]));
 
   if (models.length === 0) return null;
 
   type CompareRow = {
     label: string;
-    render: (m: Model) => React.ReactNode;
-    best?: (m: Model) => number | null;
+    render: (m: CanonicalModel) => React.ReactNode;
+    best?: (m: CanonicalModel) => number | null;
     bestMode?: 'min' | 'max';
   };
 
   const rows: CompareRow[] = [
     {
-      label: 'Provider',
-      render: (m) => providerNames.get(m.provider_id) ?? m.provider_id,
+      label: 'Providers',
+      render: (m) => {
+        const names = getProviderNames?.(m.model_id) ?? [];
+        return names.length > 0 ? names.join(', ') : '—';
+      },
     },
     {
       label: 'Tier',
@@ -59,15 +62,15 @@ export function CompareModal({
       bestMode: 'min',
     },
     {
-      label: 'Context',
-      render: (m) => (m.context_window != null ? `${formatCtx(m.context_window)} tokens` : '—'),
-      best: (m) => m.context_window ?? null,
+      label: 'Quality',
+      render: (m) => (m.quality ? `${m.quality.score.toFixed(1)} / 100` : '—'),
+      best: (m) => m.quality?.score ?? null,
       bestMode: 'max',
     },
     {
-      label: 'Max output',
-      render: (m) => (m.max_output_tokens != null ? formatCtx(m.max_output_tokens) : '—'),
-      best: (m) => m.max_output_tokens ?? null,
+      label: 'Context',
+      render: (m) => (m.context_window != null ? `${formatCtx(m.context_window)} tokens` : '—'),
+      best: (m) => m.context_window ?? null,
       bestMode: 'max',
     },
     {
@@ -87,11 +90,11 @@ export function CompareModal({
     },
     ...benchmarkNames.map((name) => ({
       label: benchmarkLabel(name),
-      render: (m: Model) => {
+      render: (m: CanonicalModel) => {
         const score = getBenchmarkScore?.(m.model_id, name);
         return score ? `${score.score} (#${score.rank})` : '—';
       },
-      best: (m: Model) => getBenchmarkScore?.(m.model_id, name)?.score ?? null,
+      best: (m: CanonicalModel) => getBenchmarkScore?.(m.model_id, name)?.score ?? null,
       bestMode: 'max' as const,
     })),
   ];

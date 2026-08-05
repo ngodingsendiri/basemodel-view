@@ -3,7 +3,7 @@
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
-  padding: 8px 10px;
+  padding: clamp(7px, 0.7vw, 11px) clamp(9px, 0.9vw, 13px);
   display: flex;
   cursor: pointer;
   position: relative;

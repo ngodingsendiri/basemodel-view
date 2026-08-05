@@ -1,14 +1,18 @@
 import { useMemo, useCallback } from 'react';
-import type { Model, Provider, IntelligenceRecord, BenchmarkScore } from '../schemas/api';
-import type { ModelId } from '../domain/branded';
+import type { CanonicalModel, Provider, Offering, BenchmarkScore, RankingEntry } from '../schemas/api';
+import type { ModelId, ProviderId } from '../domain/branded';
 import type { SortKey, ProviderFilter } from '../types/filters';
 import { rankBenchmarkFromKey } from '../types/filters';
+import type { ModelPricing } from './useExplorerData';
 
 export interface UseFilteredModelsProps {
-  models: Model[];
+  models: CanonicalModel[];
   providers: Provider[];
-  intelligenceByModel: ReadonlyMap<ModelId, IntelligenceRecord>;
-  /** catalog model id -> benchmark name -> { score, rank }. */
+  offeringsByModel: ReadonlyMap<ModelId, Offering[]>;
+  pricingByModel: ReadonlyMap<ModelId, ModelPricing>;
+  modelIdsByProvider: ReadonlyMap<ProviderId, ReadonlySet<ModelId>>;
+  rankingByModel: ReadonlyMap<ModelId, RankingEntry>;
+  /** catalog model id -> benchmark name -> { score, rank } */
   benchmarksByModel?: ReadonlyMap<ModelId, ReadonlyMap<string, BenchmarkScore>>;
   selectedProviderId: ProviderFilter;
   searchQuery: string;
@@ -19,37 +23,34 @@ export interface UseFilteredModelsProps {
 export function useFilteredModels({
   models,
   providers,
-  intelligenceByModel,
+  offeringsByModel,
+  pricingByModel,
+  modelIdsByProvider,
+  rankingByModel,
   benchmarksByModel = new Map(),
   selectedProviderId,
   searchQuery,
   freeOnly,
   sortKey,
 }: UseFilteredModelsProps) {
-  const tierMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const [modelId, record] of intelligenceByModel) {
-      map.set(modelId, record.cost_tier);
-    }
-    return map;
-  }, [intelligenceByModel]);
-
   const getTierForModel = useCallback(
-    (modelId: string) => tierMap.get(modelId) ?? 'Unknown',
-    [tierMap]
+    (modelId: string) => pricingByModel.get(modelId as ModelId)?.tier ?? 'Unknown',
+    [pricingByModel]
   );
 
-  const priceMap = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const [modelId, record] of intelligenceByModel) {
-      map.set(modelId, record.blended_cost_per_1m);
-    }
-    return map;
-  }, [intelligenceByModel]);
-
   const getPriceForModel = useCallback(
-    (modelId: string) => priceMap.get(modelId),
-    [priceMap]
+    (modelId: string) => pricingByModel.get(modelId as ModelId)?.price,
+    [pricingByModel]
+  );
+
+  const getOfferingsForModel = useCallback(
+    (modelId: string): Offering[] => offeringsByModel.get(modelId as ModelId) ?? [],
+    [offeringsByModel]
+  );
+
+  const getProviderCount = useCallback(
+    (modelId: string) => offeringsByModel.get(modelId as ModelId)?.length ?? 0,
+    [offeringsByModel]
   );
 
   /** Score for a model on a benchmark, or undefined when unranked. */
@@ -65,7 +66,8 @@ export function useFilteredModels({
     let result = models;
 
     if (selectedProviderId !== 'all') {
-      result = result.filter((m) => m.provider_id === selectedProviderId);
+      const served = modelIdsByProvider.get(selectedProviderId);
+      result = result.filter((m) => served?.has(m.model_id));
     }
     if (freeOnly) {
       result = result.filter((m) => getTierForModel(m.model_id) === 'Free');
@@ -73,11 +75,20 @@ export function useFilteredModels({
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const providerNameById = new Map(providers.map((p) => [p.provider_id, p.name.toLowerCase()]));
+      // Provider names serving each model, precomputed once per query pass.
+      const providerNamesByModel = new Map<ModelId, string>();
+      for (const m of models) {
+        const names = (offeringsByModel.get(m.model_id) ?? [])
+          .map((o) => providerNameById.get(o.provider_id) ?? '')
+          .join(' ');
+        providerNamesByModel.set(m.model_id, names);
+      }
       result = result.filter(
         (m) =>
           m.name.toLowerCase().includes(q) ||
           m.model_id.toLowerCase().includes(q) ||
-          (providerNameById.get(m.provider_id) ?? '').includes(q)
+          m.aliases.some((alias) => alias.toLowerCase().includes(q)) ||
+          (providerNamesByModel.get(m.model_id) ?? '').includes(q)
       );
     }
 
@@ -85,9 +96,18 @@ export function useFilteredModels({
       if (sortKey === 'context') return (b.context_window ?? 0) - (a.context_window ?? 0);
       if (sortKey === 'date') return (b.release_date ?? '').localeCompare(a.release_date ?? '');
       if (sortKey === 'price') {
-        const pa = priceMap.get(a.model_id) ?? Number.POSITIVE_INFINITY;
-        const pb = priceMap.get(b.model_id) ?? Number.POSITIVE_INFINITY;
+        const pa = pricingByModel.get(a.model_id)?.price ?? Number.POSITIVE_INFINITY;
+        const pb = pricingByModel.get(b.model_id)?.price ?? Number.POSITIVE_INFINITY;
         return pa - pb;
+      }
+      if (sortKey === 'quality') {
+        const qa = a.quality?.score;
+        const qb = b.quality?.score;
+        // Unscored models sink to the bottom; among scored, higher first.
+        if (qa == null && qb == null) return 0;
+        if (qa == null) return 1;
+        if (qb == null) return -1;
+        return qb - qa;
       }
       if (rankBenchmark) {
         const sa = benchmarksByModel.get(a.model_id)?.get(rankBenchmark)?.score;
@@ -100,7 +120,16 @@ export function useFilteredModels({
       }
       return a.name.localeCompare(b.name);
     });
-  }, [models, providers, selectedProviderId, searchQuery, freeOnly, sortKey, getTierForModel, priceMap, benchmarksByModel, rankBenchmark]);
+  }, [models, providers, selectedProviderId, searchQuery, freeOnly, sortKey, modelIdsByProvider, getTierForModel, pricingByModel, offeringsByModel, benchmarksByModel, rankBenchmark]);
 
-  return { filtered, getTierForModel, getPriceForModel, getBenchmarkScore, rankBenchmark };
+  return {
+    filtered,
+    getTierForModel,
+    getPriceForModel,
+    getOfferingsForModel,
+    getProviderCount,
+    getBenchmarkScore,
+    rankBenchmark,
+    rankingByModel,
+  };
 }

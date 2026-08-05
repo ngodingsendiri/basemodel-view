@@ -1,5 +1,5 @@
 /* Compare modal. The `modal-enter` keyframes are defined once in
-   AlternativesModal.css (shared by both modals). */
+   ModelDetailModal.css (shared by both modals). */
 .compare-modal { max-width: 720px; animation: modal-enter 0.15s ease-out; }
 
 .compare-table-wrap { overflow-x: auto; }

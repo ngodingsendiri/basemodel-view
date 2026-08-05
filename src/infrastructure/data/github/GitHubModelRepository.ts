@@ -1,13 +1,17 @@
 import type {
-  Model,
+  CanonicalModel,
   Provider,
-  IntelligenceRecord,
+  Offering,
+  RankingEntry,
+  ChangesFeed,
   Benchmark,
 } from '../../../schemas/api';
 import {
-  ModelsResponseSchema,
+  CanonicalModelsResponseSchema,
   ProvidersResponseSchema,
-  IntelligenceResponseSchema,
+  OfferingsResponseSchema,
+  RankingResponseSchema,
+  ChangesFeedSchema,
   BenchmarksResponseSchema,
 } from '../../../schemas/api';
 import type { ModelRepository, CachedData } from '../../../domain/models';
@@ -17,7 +21,7 @@ export type { CachedData } from '../../../domain/models';
 export const API_BASE = 'https://raw.githubusercontent.com/ngodingsendiri/BaseModel/main/dist';
 export const CDN_FALLBACK = 'https://cdn.jsdelivr.net/gh/ngodingsendiri/BaseModel@main/dist';
 
-export const CACHE_KEY = 'basemodel:explorer-data:v4';
+export const CACHE_KEY = 'basemodel:explorer-data:v5';
 export const CACHE_TTL = 10 * 60 * 1000;
 
 export const MAX_FAILURES_BEFORE_CIRCUIT_OPEN = 5;
@@ -104,9 +108,9 @@ export class GitHubModelRepository implements ModelRepository {
     }
   }
 
-  async fetchModels(): Promise<Model[]> {
-    const data = await this.fetchJson('models.json');
-    const result = ModelsResponseSchema.safeParse(data);
+  async fetchCanonicalModels(): Promise<CanonicalModel[]> {
+    const data = await this.fetchJson('v2/models.json');
+    const result = CanonicalModelsResponseSchema.safeParse(data);
     if (!result.success) throw new Error(`Invalid models: ${result.error.message}`);
     return result.data.models;
   }
@@ -118,11 +122,25 @@ export class GitHubModelRepository implements ModelRepository {
     return result.data.providers;
   }
 
-  async fetchIntelligence(): Promise<IntelligenceRecord[]> {
-    const data = await this.fetchJson('intelligence.json');
-    const result = IntelligenceResponseSchema.safeParse(data);
-    if (!result.success) throw new Error(`Invalid intelligence: ${result.error.message}`);
-    return result.data.intelligence;
+  async fetchOfferings(): Promise<Offering[]> {
+    const data = await this.fetchJson('v2/offerings.json');
+    const result = OfferingsResponseSchema.safeParse(data);
+    if (!result.success) throw new Error(`Invalid offerings: ${result.error.message}`);
+    return result.data.offerings;
+  }
+
+  async fetchRanking(): Promise<RankingEntry[]> {
+    const data = await this.fetchJson('v2/intelligence.json');
+    const result = RankingResponseSchema.safeParse(data);
+    if (!result.success) throw new Error(`Invalid ranking: ${result.error.message}`);
+    return result.data.ranking;
+  }
+
+  async fetchChanges(): Promise<ChangesFeed> {
+    const data = await this.fetchJson('changes.json');
+    const result = ChangesFeedSchema.safeParse(data);
+    if (!result.success) throw new Error(`Invalid changes: ${result.error.message}`);
+    return result.data;
   }
 
   async fetchBenchmarks(): Promise<Benchmark[]> {

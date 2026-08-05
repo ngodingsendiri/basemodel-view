@@ -1,27 +1,27 @@
 import { z } from 'zod';
 import {
-  ModelsResponseSchema,
+  CanonicalModelsResponseSchema,
   ProvidersResponseSchema,
-  IntelligenceResponseSchema,
-  type Model,
+  OfferingsResponseSchema,
+  type CanonicalModel,
   type Provider,
-  type IntelligenceRecord,
+  type Offering,
 } from '../types';
 
-export function validateModelsResponse(data: unknown): { models: Model[] } {
-  return ModelsResponseSchema.parse(data);
+export function validateModelsResponse(data: unknown): { models: CanonicalModel[] } {
+  return CanonicalModelsResponseSchema.parse(data);
 }
 
 export function validateProvidersResponse(data: unknown): { providers: Provider[] } {
   return ProvidersResponseSchema.parse(data);
 }
 
-export function validateIntelligenceResponse(data: unknown): { intelligence: IntelligenceRecord[] } {
-  return IntelligenceResponseSchema.parse(data);
+export function validateOfferingsResponse(data: unknown): { offerings: Offering[] } {
+  return OfferingsResponseSchema.parse(data);
 }
 
-export function safeParseModelsResponse(data: unknown): { success: true; data: { models: Model[] } } | { success: false; error: z.ZodError } {
-  const result = ModelsResponseSchema.safeParse(data);
+export function safeParseModelsResponse(data: unknown): { success: true; data: { models: CanonicalModel[] } } | { success: false; error: z.ZodError } {
+  const result = CanonicalModelsResponseSchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
   }
@@ -36,8 +36,8 @@ export function safeParseProvidersResponse(data: unknown): { success: true; data
   return { success: false, error: result.error };
 }
 
-export function safeParseIntelligenceResponse(data: unknown): { success: true; data: { intelligence: IntelligenceRecord[] } } | { success: false; error: z.ZodError } {
-  const result = IntelligenceResponseSchema.safeParse(data);
+export function safeParseOfferingsResponse(data: unknown): { success: true; data: { offerings: Offering[] } } | { success: false; error: z.ZodError } {
+  const result = OfferingsResponseSchema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
   }

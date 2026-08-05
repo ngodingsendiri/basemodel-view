@@ -22,7 +22,7 @@ export default defineConfig({
             if (id.includes('zod')) return 'vendor-zod';
             return 'vendor';
           }
-          if (id.includes('AlternativesModal')) return 'modal';
+          if (id.includes('ModelDetailModal')) return 'modal';
         },
       },
     },

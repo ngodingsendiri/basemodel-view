@@ -260,3 +260,104 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* v2 detail modal: offerings table rows */
+.alt-item--best {
+  border-color: rgba(16,185,129,0.4);
+}
+.alt-item-price-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.alt-item-price--free {
+  color: var(--green, #10b981);
+  font-weight: 600;
+}
+.alt-item-ctx {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.best-offer-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  /* Dark emerald keeps ≥4.5:1 contrast on the light tint; dark theme restores
+     the brighter green (high contrast on dark surfaces). */
+  color: #065f46;
+  background: var(--green-glow);
+  border: 1px solid rgba(16,185,129,0.3);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+[data-theme='dark'] .best-offer-chip {
+  color: var(--green);
+}
+
+/* Alias chips in the modal header */
+.modal-aliases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.alias-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xs);
+  padding: 2px 6px;
+}
+
+/* "New in latest registry update" badge (cards + modal title) */
+.new-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  /* --yellow is theme-aware (#b45309 light / #f59e0b dark) and keeps ≥4.5:1 contrast. */
+  color: var(--yellow);
+  background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.35);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* Quality score chip (benchmark average; star marks Pareto frontier) */
+.quality-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.quality-chip--pareto {
+  color: var(--yellow);
+  border-color: rgba(245,158,11,0.4);
+  background: rgba(245,158,11,0.08);
+}
+.pareto-star {
+  margin-left: 6px;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--yellow);
+}

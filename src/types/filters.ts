@@ -1,6 +1,6 @@
 import type { ProviderId } from '../domain/branded';
 
-export type SortKey = 'name' | 'context' | 'date' | 'price' | `rank:${string}`;
+export type SortKey = 'name' | 'context' | 'date' | 'price' | 'quality' | `rank:${string}`;
 
 export type ProviderFilter = ProviderId | 'all';
 
@@ -10,7 +10,7 @@ export function rankBenchmarkFromKey(sortKey: SortKey): string | null {
 }
 
 export function parseSortKey(value: string | null): SortKey {
-  if (value === 'context' || value === 'date' || value === 'price') return value;
+  if (value === 'context' || value === 'date' || value === 'price' || value === 'quality') return value;
   if (value?.startsWith('rank:') && value.length > 'rank:'.length) return value as SortKey;
   return 'name';
 }

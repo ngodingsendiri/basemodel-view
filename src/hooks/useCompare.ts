@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Model } from '../schemas/api';
+import type { CanonicalModel } from '../schemas/api';
 import type { ModelId } from '../domain/branded';
 
 import { MAX_COMPARE } from '../components/ui/constants';
 
-export function useCompare(models: Model[], urlSeed: ModelId[] = []) {
+export function useCompare(models: CanonicalModel[], urlSeed: ModelId[] = []) {
   const [selected, setSelected] = useState<ReadonlySet<ModelId>>(new Set());
 
   const toggle = useCallback((modelId: string) => {

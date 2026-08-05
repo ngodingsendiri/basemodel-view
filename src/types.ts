@@ -1,13 +1,26 @@
-export type { Model, Provider, Alternative, IntelligenceRecord, ExplorerData, Benchmark, BenchmarkScore } from './schemas/api';
+export type {
+  CanonicalModel,
+  Provider,
+  Offering,
+  RankingEntry,
+  ChangesFeed,
+  Quality,
+  ExplorerData,
+  Benchmark,
+  BenchmarkScore,
+} from './schemas/api';
 export {
-  ModelSchema,
+  CanonicalModelSchema,
   ProviderSchema,
-  AlternativeSchema,
-  IntelligenceRecordSchema,
+  OfferingSchema,
+  RankingEntrySchema,
+  ChangesFeedSchema,
+  QualitySchema,
   BenchmarkSchema,
-  ModelsResponseSchema,
+  CanonicalModelsResponseSchema,
   ProvidersResponseSchema,
-  IntelligenceResponseSchema,
+  OfferingsResponseSchema,
+  RankingResponseSchema,
   BenchmarksResponseSchema,
 } from './schemas/api';
 export { PROVIDER_LINKS } from './config/providers';

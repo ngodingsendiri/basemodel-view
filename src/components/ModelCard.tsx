@@ -1,14 +1,23 @@
 import { useState } from 'react';
-import type { Model, BenchmarkScore } from '../types';
+import type { CanonicalModel, BenchmarkScore } from '../types';
 import { formatCtx, formatReleaseDate, formatCost, displayModelName } from '../utils/format';
 import { copyText } from '../utils/clipboard';
 import { TIER_CLASS, MODALITY_LABEL, MAX_COMPARE, benchmarkLabel } from './ui/constants';
 import { IconTag, IconCheck, IconCopy } from './icons';
 
 interface ModelCardProps {
-  model: Model;
+  model: CanonicalModel;
   tier: string;
+  /** Cheapest known price per 1M tokens across providers. */
   price?: number;
+  /** Number of providers serving this model. */
+  providerCount?: number;
+  /** Benchmark-derived quality score (0–100), when available. */
+  qualityScore?: number;
+  /** True when the model sits on the quality/cost Pareto frontier. */
+  pareto?: boolean;
+  /** Model gained an offering in the latest registry run. */
+  isNew?: boolean;
   /** Score + rank on the active ranking benchmark (when sorting by rank). */
   rank?: BenchmarkScore;
   rankBenchmarkName?: string;
@@ -49,7 +58,21 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 const MAX_VISIBLE_MODALITIES = 3;
 
-export function ModelCard({ model, tier, price, rank, rankBenchmarkName, compareSelected, compareDisabled, onToggleCompare, onClick }: ModelCardProps) {
+export function ModelCard({
+  model,
+  tier,
+  price,
+  providerCount,
+  qualityScore,
+  pareto = false,
+  isNew = false,
+  rank,
+  rankBenchmarkName,
+  compareSelected,
+  compareDisabled,
+  onToggleCompare,
+  onClick,
+}: ModelCardProps) {
   const isFree = tier === 'Free';
   const releaseYear = formatReleaseDate(model.release_date);
   const modalities = model.modality ?? [];
@@ -67,9 +90,20 @@ export function ModelCard({ model, tier, price, rank, rankBenchmarkName, compare
         onClick={handleClick}
         aria-label={`View details for ${displayName}`}
       >
-        {/* Top Line: name + rank + tier badge */}
+        {/* Top Line: name + quality + rank + tier badge */}
         <span className="card-topline">
           <span className="model-name" title={displayName}>{displayName}</span>
+          {isNew && <span className="new-chip" title="New in the latest registry update">New</span>}
+          {qualityScore != null && (
+            <span
+              className={`quality-chip${pareto ? ' quality-chip--pareto' : ''}`}
+              title={pareto
+                ? `Quality ${qualityScore.toFixed(1)}/100 — Pareto optimal (best quality-to-cost frontier)`
+                : `Quality ${qualityScore.toFixed(1)}/100 (benchmark average)`}
+            >
+              {pareto && '★ '}{qualityScore.toFixed(1)}
+            </span>
+          )}
           {rank && rankBenchmarkName && (
             <span
               className="rank-chip"
@@ -91,16 +125,15 @@ export function ModelCard({ model, tier, price, rank, rankBenchmarkName, compare
 
         {/* Meta Line: stats + modality pills */}
         <span className="card-metaline">
+          {providerCount != null && providerCount > 0 && (
+            <span className="stat-chip" title={`Served by ${providerCount} provider${providerCount === 1 ? '' : 's'}`}>
+              {providerCount} prov
+            </span>
+          )}
           {model.context_window != null && (
             <span className="stat-chip">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
               {formatCtx(model.context_window)} ctx
-            </span>
-          )}
-          {model.max_output_tokens != null && (
-            <span className="stat-chip">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-              {formatCtx(model.max_output_tokens)} out
             </span>
           )}
           {releaseYear && (
@@ -110,9 +143,9 @@ export function ModelCard({ model, tier, price, rank, rankBenchmarkName, compare
             </span>
           )}
           {price !== undefined && price > 0 && (
-            <span className="stat-chip stat-chip--price" title="Cost per 1M tokens">
+            <span className="stat-chip stat-chip--price" title="Cheapest known cost per 1M tokens across providers">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              {formatCost(price)} /1M
+              from {formatCost(price)} /1M
             </span>
           )}
           {visibleModalities.length > 0 && (
@@ -139,10 +172,10 @@ export function ModelCard({ model, tier, price, rank, rankBenchmarkName, compare
           aria-pressed={compareSelected ?? false}
           aria-label={
             compareSelected
-              ? `Remove ${model.name} from comparison`
+              ? `Remove ${displayName} from comparison`
               : compareDisabled
                 ? `Comparison limit reached (max ${MAX_COMPARE})`
-                : `Add ${model.name} to comparison`
+                : `Add ${displayName} to comparison`
           }
           title={
             compareSelected

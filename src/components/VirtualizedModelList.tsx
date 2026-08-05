@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { Model, BenchmarkScore } from '../types';
+import type { CanonicalModel, BenchmarkScore, RankingEntry } from '../types';
 import { ModelCard } from './ModelCard';
 import { SkeletonCard } from './SkeletonCard';
 import { IconBox, IconChevronUp } from './icons';
 
-const MIN_CARD_WIDTH = 300;
+const MIN_CARD_WIDTH = 280;
 const CARD_GAP = 8;
 const LOADING_CARD_COUNT = 12;
 
 interface VirtualizedModelListProps {
-  models: Model[];
+  models: CanonicalModel[];
   getTier: (modelId: string) => string;
   getPrice?: (modelId: string) => number | undefined;
+  getProviderCount?: (modelId: string) => number;
+  /** Pareto ranking entry per canonical model. */
+  rankingByModel?: ReadonlyMap<string, RankingEntry>;
+  /** Canonical models that gained an offering in the latest registry run. */
+  newModelIds?: ReadonlySet<string>;
   /** Active ranking benchmark name when sorted by rank (e.g. "code"). */
   rankBenchmark?: string | null;
   getBenchmarkScore?: (modelId: string, name: string) => BenchmarkScore | undefined;
@@ -29,6 +34,9 @@ export function VirtualizedModelList({
   models,
   getTier,
   getPrice,
+  getProviderCount,
+  rankingByModel,
+  newModelIds,
   rankBenchmark,
   getBenchmarkScore,
   compareSelected,
@@ -71,7 +79,10 @@ export function VirtualizedModelList({
     if (!el) return;
     const update = () => {
       const width = el.clientWidth;
-      setColumns(Math.max(1, Math.floor((width + CARD_GAP) / (MIN_CARD_WIDTH + CARD_GAP))));
+      // Smaller windows get a smaller min-width so the grid reflows to more
+      // columns as the window grows (elastic, not fixed).
+      const minCard = Math.min(MIN_CARD_WIDTH, Math.max(200, width * 0.32));
+      setColumns(Math.max(1, Math.floor((width + CARD_GAP) / (minCard + CARD_GAP))));
     };
     update();
     const observer = new ResizeObserver(update);
@@ -82,7 +93,7 @@ export function VirtualizedModelList({
   // Chunk the flat model list into rows of `columns` cards so each virtual
   // item renders one CSS grid row.
   const rows = useMemo(() => {
-    const out: Model[][] = [];
+    const out: CanonicalModel[][] = [];
     for (let i = 0; i < models.length; i += columns) {
       out.push(models.slice(i, i + columns));
     }
@@ -169,6 +180,10 @@ export function VirtualizedModelList({
                     model={model}
                     tier={getTier(model.model_id)}
                     price={getPrice?.(model.model_id)}
+                    providerCount={getProviderCount?.(model.model_id)}
+                    qualityScore={model.quality?.score}
+                    pareto={rankingByModel?.get(model.model_id)?.pareto_optimal ?? false}
+                    isNew={newModelIds?.has(model.model_id) ?? false}
                     rank={
                       rankBenchmark ? getBenchmarkScore?.(model.model_id, rankBenchmark) : undefined
                     }

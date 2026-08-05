@@ -59,17 +59,27 @@ test('persists ranking sort across reloads via the URL', async ({ page }) => {
   await expect(page).toHaveURL(/sort=rank%3Acode/);
 });
 
-test('opens the alternatives modal on model click', async ({ page }) => {
+test('opens the model detail modal on model click', async ({ page }) => {
   await page.getByText('Test Alpha Model').click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(/Suggested Alternatives/)).toBeVisible();
-  await expect(dialog.getByText('Beta Model Two')).toBeVisible();
+  await expect(dialog.getByText(/Available Providers \(2\)/)).toBeVisible();
+  await expect(dialog.getByText('Test Company')).toBeVisible();
+  await expect(dialog.getByText('Other Company')).toBeVisible();
+  // Alias chips from the canonical model are rendered.
+  await expect(dialog.getByText('alpha-one')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
 });
 
-test('opens the alternatives modal via URL deep link', async ({ page }) => {
+test('opens the detail modal via canonical deep link', async ({ page }) => {
+  await page.goto('/?alt=model-1');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Test Alpha Model')).toBeVisible();
+});
+
+test('opens the detail modal via legacy offering-id deep link', async ({ page }) => {
   await page.goto('/?alt=testco%2Fmodel-1');
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -86,18 +96,37 @@ test('clears all filters with the clear filters button', async ({ page }) => {
   await expect(page.getByText('Beta Model Two')).toBeVisible();
 });
 
-test('displays price per 1M tokens on paid models', async ({ page }) => {
-  await expect(page.getByText('$10.00 /1M')).toBeVisible();
+test('displays cheapest price per 1M tokens on paid models', async ({ page }) => {
+  await expect(page.getByText(/from \$10\.00 \/1M/)).toBeVisible();
 });
 
-test('navigates to an alternative model from the modal', async ({ page }) => {
+test('shows quality, Pareto, and New chips on ranked models', async ({ page }) => {
+  const card = page.locator('.model-card', { hasText: 'Test Alpha Model' });
+  // Quality chip (Pareto star) + New badge from changes.json.
+  await expect(card.locator('.quality-chip--pareto')).toContainText('★ 88.5');
+  await expect(card.locator('.new-chip')).toBeVisible();
+  // Provider-count chip from the offerings dataset.
+  await expect(card.locator('.stat-chip', { hasText: '2 prov' })).toBeVisible();
+});
+
+test('highlights the best-price offering in the detail modal', async ({ page }) => {
   await page.getByText('Test Alpha Model').click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
 
-  await dialog.getByRole('button', { name: /View details for Beta Model Two/ }).click({ position: { x: 60, y: 20 } });
-  await expect(page.locator('.modal-title')).toHaveText('Beta Model Two');
-  await expect(dialog.getByText('$10.00 /1M')).toBeVisible();
+  // Free offering drives the resolved price -> highlighted as best.
+  await expect(dialog.locator('.alt-item--best', { hasText: 'Test Company' })).toBeVisible();
+  await expect(dialog.locator('.best-offer-chip')).toHaveText('Best price');
+  await expect(dialog.getByText(/88\.5 \/ 100/)).toBeVisible();
+  await expect(dialog.locator('.pareto-star')).toBeVisible();
+});
+
+test('sorts by quality best first', async ({ page }) => {
+  await page.selectOption('#sort-select', 'quality');
+  await expect(page).toHaveURL(/sort=quality/);
+
+  const cards = page.locator('.model-card');
+  await expect(cards.first()).toContainText('Test Alpha Model'); // 88.5 > 70
 });
 
 test('compares two models side by side', async ({ page }) => {
@@ -112,6 +141,9 @@ test('compares two models side by side', async ({ page }) => {
   await expect(dialog.getByText('Compare models')).toBeVisible();
   await expect(dialog.getByText('$10.00 /1M')).toBeVisible();
   await expect(dialog.getByRole('cell', { name: 'Premium' })).toBeVisible();
+  // Providers + Quality rows come from the v2 dataset.
+  await expect(dialog.getByRole('cell', { name: 'Test Company, Other Company' })).toBeVisible();
+  await expect(dialog.getByRole('cell', { name: '88.5 / 100' })).toBeVisible();
 
   await dialog.getByRole('button', { name: 'Remove Test Alpha Model from comparison' }).click();
   await expect(dialog.getByRole('cell', { name: 'Test Alpha Model' })).toHaveCount(0);
@@ -121,24 +153,22 @@ test('compares two models side by side', async ({ page }) => {
   await expect(dialog).toBeHidden();
 });
 
-test('expands alternative suggestions beyond the first three', async ({ page }) => {
+test('lists every provider offering in the detail modal', async ({ page }) => {
   await page.getByText('Test Alpha Model').click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
 
-  await expect(dialog.getByRole('button', { name: /View details for Zeta Model Six/ })).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: 'Show 2 more' })).toBeVisible();
-
-  await dialog.getByRole('button', { name: 'Show 2 more' }).click();
-  await expect(dialog.getByRole('button', { name: /View details for Zeta Model Six/ })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Show 2 more' })).toHaveCount(0);
+  // Both offerings listed with their ids; the priced one shows its price.
+  await expect(dialog.getByText('testco/model-1')).toBeVisible();
+  await expect(dialog.getByText('otherco/model-1')).toBeVisible();
+  await expect(dialog.getByText(/2 providers/)).toBeVisible();
 });
 
 test('closes the modal when the browser Back button is pressed', async ({ page }) => {
   await page.getByText('Test Alpha Model').click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(page).toHaveURL(/alt=testco%2Fmodel-1/);
+  await expect(page).toHaveURL(/alt=model-1/);
 
   await page.goBack();
   await expect(dialog).toBeHidden();
