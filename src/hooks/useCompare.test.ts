@@ -106,9 +106,24 @@ describe('useCompare', () => {
     });
 
     expect(result.current.selected.size).toBe(0);
+    expect(result.current.seedApplied).toBe(false);
 
     rerender({ models: mockModels });
     expect(result.current.selectedModels.map((m) => m.model_id)).toEqual(['model2']);
+    expect(result.current.seedApplied).toBe(true);
+  });
+
+  it('flags seedApplied even when every seed id is unknown', () => {
+    const { result, rerender } = renderHook(({ models }) => useCompare(models, [modelId('ghost')]), {
+      initialProps: { models: [] as CanonicalModel[] },
+    });
+
+    expect(result.current.seedApplied).toBe(false);
+    rerender({ models: mockModels });
+    // Selection stays empty but the seed is considered evaluated, so URL sync
+    // may safely take over.
+    expect(result.current.seedApplied).toBe(true);
+    expect(result.current.selected.size).toBe(0);
   });
 
   it('prunes the selection state (not just the projection) when the dataset shrinks', () => {

@@ -93,6 +93,8 @@ export class GitHubModelRepository implements ModelRepository {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as CachedData;
+      // Shape guard: a corrupt or foreign-shape cache must never reach render.
+      if (!Array.isArray(parsed?.data?.models) || !Array.isArray(parsed?.data?.offerings)) return null;
       if (!ignoreTTL && Date.now() - parsed.timestamp > CACHE_TTL) return null;
       return parsed;
     } catch {

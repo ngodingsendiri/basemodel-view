@@ -34,6 +34,11 @@ describe('formatReleaseDate', () => {
   it('returns null for empty string', () => {
     expect(formatReleaseDate('')).toBeNull();
   });
+
+  it('returns null for unparseable date strings', () => {
+    expect(formatReleaseDate('not-a-date')).toBeNull();
+    expect(formatReleaseDate('2024-13-99')).toBeNull();
+  });
 });
 
 describe('formatCost', () => {

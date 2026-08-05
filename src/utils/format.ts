@@ -6,7 +6,9 @@ export function formatCtx(ctx: number): string {
 
 export function formatReleaseDate(dateStr?: string): string | null {
   if (!dateStr) return null;
-  return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
 }
 
 export function formatCost(n: number | undefined): string {

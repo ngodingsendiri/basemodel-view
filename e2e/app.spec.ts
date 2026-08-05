@@ -188,6 +188,17 @@ test('persists compare selection across reloads via the URL', async ({ page }) =
   await expect(page.getByRole('dialog').getByText('Compare models')).toBeVisible();
 });
 
+test('restores a compare deep link on a cold load (no cache)', async ({ page }) => {
+  // Fresh context = empty localStorage, so the seed must survive the initial
+  // URL sync that runs before the dataset is available.
+  await page.goto('/?compare=model-1,model-2');
+  await expect(page.getByText('2 selected')).toBeVisible();
+  await expect(page).toHaveURL(/compare=model-1%2Cmodel-2|compare=model-1,model-2/);
+
+  await page.getByRole('button', { name: /Compare \(2\)/ }).click();
+  await expect(page.getByRole('dialog').getByText('Compare models')).toBeVisible();
+});
+
 test('shows Free pricing and highlights the best value in the compare table', async ({ page }) => {
   await page.getByRole('button', { name: 'Add Test Alpha Model to comparison' }).click();
   await page.getByRole('button', { name: 'Add Beta Model Two to comparison' }).click();

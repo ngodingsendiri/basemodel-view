@@ -305,11 +305,14 @@ export default function App() {
   });
 
   // Provider display names serving each canonical model (compare table).
+  const providerNameById = useMemo(
+    () => new Map((data?.providers ?? []).map((p) => [p.provider_id, p.name])),
+    [data?.providers]
+  );
   const getProviderNames = useCallback((modelId: string): string[] => {
-    const nameById = new Map((data?.providers ?? []).map((p) => [p.provider_id, p.name]));
     return (offeringsByModel.get(modelId as ModelId) ?? [])
-      .map((o) => nameById.get(o.provider_id) ?? o.provider_id);
-  }, [data?.providers, offeringsByModel]);
+      .map((o) => providerNameById.get(o.provider_id) ?? o.provider_id);
+  }, [providerNameById, offeringsByModel]);
 
   const compareUrlSeed = useMemo<ModelId[]>(() => {
     const raw = searchParams.get('compare');
@@ -321,7 +324,11 @@ export default function App() {
 
   // Persist the compare selection to the URL so it survives a reload, matching
   // the other filter state. Other params are preserved via functional update.
+  // While a deep-link seed is still pending (data not loaded yet) the param is
+  // left untouched, otherwise the empty selection would wipe it before the
+  // seed effect can read it.
   useEffect(() => {
+    if (!compare.seedApplied && searchParams.get('compare')) return;
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
       const ids = Array.from(compare.selected).map(String).sort();
@@ -329,7 +336,7 @@ export default function App() {
       else params.delete('compare');
       return params;
     }, { replace: true });
-  }, [compare.selected, setSearchParams]);
+  }, [compare.selected, compare.seedApplied, searchParams, setSearchParams]);
 
   // Global shortcut: "/" focuses the search box (unless already typing).
   useEffect(() => {
@@ -347,7 +354,13 @@ export default function App() {
   // Export the current (filtered) view to a CSV file.
   const exportCsv = useCallback(() => {
     const header = ['Name', 'Model ID', 'Providers', 'Tier', 'Cheapest per 1M', 'Quality', 'Context', 'Release', 'Modalities', 'Description'];
-    const esc = (v: string | number | undefined | null) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    // Quote-escape, and neutralize formula prefixes (= + - @) so upstream text
+    // can never execute as a formula when opened in a spreadsheet (CSV injection).
+    const esc = (v: string | number | undefined | null) => {
+      let s = String(v ?? '').replace(/"/g, '""');
+      if (/^[=+@-]/.test(s)) s = `'${s}`;
+      return `"${s}"`;
+    };
     const rows = filtered.map((m) => [
       esc(m.name),
       esc(m.model_id),

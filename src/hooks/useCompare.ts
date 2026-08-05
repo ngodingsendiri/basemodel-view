@@ -6,6 +6,8 @@ import { MAX_COMPARE } from '../components/ui/constants';
 
 export function useCompare(models: CanonicalModel[], urlSeed: ModelId[] = []) {
   const [selected, setSelected] = useState<ReadonlySet<ModelId>>(new Set());
+  // State (not just a ref) so consumers re-render once the seed is evaluated.
+  const [seedApplied, setSeedApplied] = useState(false);
 
   const toggle = useCallback((modelId: string) => {
     const id = modelId as ModelId;
@@ -25,7 +27,9 @@ export function useCompare(models: CanonicalModel[], urlSeed: ModelId[] = []) {
   const clear = useCallback(() => setSelected(new Set()), []);
 
   // Apply the URL seed once the dataset is available. Selections that do not
-  // reference a known model are dropped.
+  // reference a known model are dropped. `appliedSeedRef` doubles as a flag
+  // for callers: while a seed is still pending, the URL `compare` param must
+  // not be rewritten (it would be wiped before the seed can read it).
   const appliedSeedRef = useRef(false);
   useEffect(() => {
     if (appliedSeedRef.current) return;
@@ -34,6 +38,7 @@ export function useCompare(models: CanonicalModel[], urlSeed: ModelId[] = []) {
     const known = new Set(models.map((m) => m.model_id));
     const seed = new Set<ModelId>(urlSeed.filter((id) => known.has(id)).slice(0, MAX_COMPARE));
     if (seed.size > 0) setSelected(seed);
+    setSeedApplied(true);
   }, [models, urlSeed]);
 
   // Keep only models that still exist in the current dataset, so stale
@@ -58,6 +63,8 @@ export function useCompare(models: CanonicalModel[], urlSeed: ModelId[] = []) {
     toggle,
     clear,
     selectedModels,
+    /** False until the URL seed has been evaluated against the dataset. */
+    seedApplied,
     isFull: selected.size >= MAX_COMPARE,
     maxCompare: MAX_COMPARE,
   };

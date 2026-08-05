@@ -157,8 +157,8 @@ export function ModalFallback({ onClose }: { onClose: () => void }) {
         <div className="alt-list">
           <div className="error-boundary error-boundary--inline">
             <div className="error-boundary-icon"><IconWarning width={48} height={48} /></div>
-            <h3>Failed to load alternatives</h3>
-            <p>Could not display model alternatives.</p>
+            <h3>Failed to load model details</h3>
+            <p>Could not display this model's details.</p>
             <button
               type="button"
               className="error-boundary-retry"

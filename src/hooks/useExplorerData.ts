@@ -104,11 +104,13 @@ export function useExplorerData(): ExplorerDataState {
   const [retryCount, setRetryCount] = useState(0);
 
   // Tracks whether we currently have data to render (live or stale), so a
-  // background refresh failure never blanks the UI.
+  // background refresh failure never blanks the UI. It is a plain ref updated
+  // synchronously (not via effect) because loadData can run in the same tick
+  // as seeding cached data, before any re-render.
   const hasDataRef = useRef(false);
-  useEffect(() => {
-    if (data) hasDataRef.current = true;
-  }, [data]);
+  const commitData = useCallback((next: ExplorerData | null) => {
+    if (next) hasDataRef.current = true;
+  }, []);
 
   const modelsById = useMemo(() => {
     const map = new Map<ModelId, CanonicalModel>();
@@ -238,7 +240,11 @@ export function useExplorerData(): ExplorerDataState {
 
   const loadData = useCallback(async (isRetry = false) => {
     if (repository.isCircuitOpen()) {
-      setError('Too many failed requests. Please wait before retrying.');
+      // Same policy as the catch path: only surface a hard error when there is
+      // nothing to show. With stale data present the catalog keeps rendering.
+      if (!hasDataRef.current) {
+        setError('Too many failed requests. Please wait before retrying.');
+      }
       setLoading(false);
       return;
     }
@@ -290,6 +296,7 @@ export function useExplorerData(): ExplorerDataState {
       }
 
       setData(explorerData);
+      commitData(explorerData);
       setRanking(validRanking);
       setChanges(validChanges);
       setBenchmarkRecords(validBench);
@@ -312,7 +319,7 @@ export function useExplorerData(): ExplorerDataState {
     } finally {
       setLoading(false);
     }
-  }, [service, repository]);
+  }, [service, repository, commitData]);
 
   // Serve any cached data immediately (even if stale — proper SWR), then
   // revalidate in the background.
@@ -320,6 +327,7 @@ export function useExplorerData(): ExplorerDataState {
     const cached = repository.getCachedData(true);
     if (cached) {
       setData(cached.data);
+      commitData(cached.data);
       setRanking(cached.ranking ?? []);
       setChanges(cached.changes ?? null);
       setBenchmarkRecords(cached.benchmarkRecords ?? []);
@@ -327,7 +335,7 @@ export function useExplorerData(): ExplorerDataState {
       setLoading(false);
     }
     loadData(false);
-  }, [repository, loadData]);
+  }, [repository, loadData, commitData]);
 
   // Abort any in-flight request when the view unmounts.
   useEffect(() => () => repository.abort(), [repository]);

@@ -222,4 +222,31 @@ describe('useExplorerData', () => {
     expect(result.current.error).toBe('Too many failed requests. Please wait before retrying.');
     expect(result.current.data).toBeNull();
   });
+
+  it('keeps rendering stale data when the circuit breaker is open', async () => {
+    const cached: CachedData = {
+      data: explorerData,
+      ranking,
+      changes,
+      benchmarkRecords: benchmarks,
+      timestamp: Date.now() - 60 * 60 * 1000,
+    };
+    const context = createMockContext({
+      repository: {
+        getCachedData: vi.fn(() => cached),
+        writeCache: vi.fn(),
+        isCircuitOpen: vi.fn(() => true),
+        resetCircuitBreaker: vi.fn(),
+        abort: vi.fn(),
+      } as unknown as ModelRepository,
+    });
+
+    const { result } = renderHook(() => useExplorerData(), { wrapper: wrap(context) });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Stale data stays visible; no hard error is surfaced.
+    expect(result.current.error).toBeNull();
+    expect(result.current.data).toEqual(explorerData);
+  });
 });

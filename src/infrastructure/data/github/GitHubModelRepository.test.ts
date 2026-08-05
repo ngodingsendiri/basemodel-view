@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GitHubModelRepository } from './GitHubModelRepository';
+import { GitHubModelRepository, CACHE_KEY } from './GitHubModelRepository';
 
 // Wire-format fixtures (pre-validation); Zod defaults fill the rest.
 const mockModels = { models: [{ model_id: 'test-model', name: 'Test Model' }] };
@@ -260,5 +260,21 @@ describe('GitHubModelRepository', () => {
       timestamp: Date.now() - 11 * 60 * 1000,
     });
     expect(repo.getCachedData()).toBeNull();
+  });
+
+  it('rejects corrupt or foreign-shape cache payloads', () => {
+    const repo = createRepository();
+
+    // Not JSON at all.
+    localStorage.setItem(CACHE_KEY, '<<<corrupt');
+    expect(repo.getCachedData(true)).toBeNull();
+
+    // Valid JSON but a foreign shape.
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ hello: 'world', timestamp: Date.now() }));
+    expect(repo.getCachedData(true)).toBeNull();
+
+    // Shape with missing offerings array.
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: { models: [] }, timestamp: Date.now() }));
+    expect(repo.getCachedData(true)).toBeNull();
   });
 });
